@@ -10,43 +10,95 @@ import Html.Events exposing (..)
 app : Model -> Html Msg
 app model =
     let
-        locBtnText =
-            if model.loadingLocation then
-                "Loading..."
+        loadBtn =
+            if (List.length model.images) > 0 then
+                p [ class "results-description" ] [ text ("Found " ++ (toString (List.length model.images)) ++ " images.") ]
             else
-                "Get my location"
+                viewGetLocationBtn (model.loadingPlace || model.loadingLocation || model.loadingImages)
 
-        msg =
-            case model.location of
-                Just loc ->
-                    "You are here: (" ++ (toString loc.latitude) ++ ", " ++ (toString loc.longitude) ++ ")"
-
+        locationErr =
+            case model.locationLoadError of
                 Nothing ->
-                    ""
+                    text ""
+
+                Just err ->
+                    viewLoadError err
+
+        placeErr =
+            case model.placeLoadError of
+                Nothing ->
+                    text ""
+
+                Just err ->
+                    viewLoadError err
+
+        titleTxt =
+            case model.place of
+                Nothing ->
+                    model.title
+
+                Just loc ->
+                    loc.woe_name
+
+        imgGrid =
+            if (List.length model.images) > 0 then
+                viewImageGrid model.images
+            else
+                text ""
     in
         div [ class "app-container" ]
             [ div []
                 [ header [ class "header" ]
-                    [ h1 [] [ text model.title ]
-                    , button
-                        [ class "btn btn-default"
-                        , type_ "button"
-                        , onClick RequestLocation
-                        , disabled model.loadingLocation
-                        ]
-                        [ text locBtnText
-                        ]
+                    [ h1 [] [ text titleTxt ]
+                    , loadBtn
                     ]
-                , p
-                    [ class "app-desc"
-                    , style
-                        [ ( "font-size", "80%" )
-                        , ( "font-style", "italic" )
-                        , ( "text-align", "center" )
-                        , ( "margin-top", "3rem" )
-                        ]
-                    ]
-                    [ text msg
-                    ]
+                , locationErr
+                , placeErr
+                , imgGrid
+                ]
+            ]
+
+
+viewGetLocationBtn : Bool -> Html Msg
+viewGetLocationBtn loading =
+    let
+        btnText =
+            if loading then
+                "Loading..."
+            else
+                "Show me images!"
+    in
+        button
+            [ class "btn btn-primary"
+            , type_ "button"
+            , onClick RequestLocation
+            , disabled loading
+            ]
+            [ text btnText
+            ]
+
+
+viewLoadError : String -> Html Msg
+viewLoadError msg =
+    div [ class "alert alert-danger" ]
+        [ p [] [ text msg ] ]
+
+
+viewImageGrid : List Image -> Html Msg
+viewImageGrid images =
+    List.map viewImage images
+        |> div [ class "image-grid" ]
+
+
+viewImage : Image -> Html Msg
+viewImage data =
+    let
+        -- https://farm{farm-id}.staticflickr.com/{server-id}/{id}_{secret}_[mstzb].jpg
+        srcBase =
+            "https://farm" ++ (toString data.farm) ++ ".staticflickr.com/" ++ data.server ++ "/" ++ data.id ++ "_" ++ data.secret
+    in
+        div [ class "grid-item" ]
+            [ a [ href (srcBase ++ "_b.jpg") ]
+                [ img [ Html.Attributes.src (srcBase ++ "_b.jpg") ] []
                 ]
             ]

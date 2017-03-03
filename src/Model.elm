@@ -14,10 +14,23 @@ type alias Model =
     , apiKey : String
     , loadingLocation : Bool
     , location : Maybe Geolocation.Location
-    , locationError : Maybe String
+    , locationLoadError : Maybe String
     , loadingPlace : Bool
     , place : Maybe Place
     , placeLoadError : Maybe String
+    , images : List Image
+    , loadingImages : Bool
+    , imagesLoadError : Maybe String
+    }
+
+
+type alias Image =
+    { id : String
+    , owner : String
+    , secret : String
+    , server : String
+    , farm : Int
+    , title : String
     }
 
 
@@ -40,10 +53,13 @@ initialState flags =
       , apiKey = flags.flickrApiKey
       , loadingLocation = False
       , location = Nothing
-      , locationError = Nothing
+      , locationLoadError = Nothing
       , loadingPlace = False
       , place = Nothing
       , placeLoadError = Nothing
+      , images = []
+      , loadingImages = False
+      , imagesLoadError = Nothing
       }
     , Cmd.none
     )

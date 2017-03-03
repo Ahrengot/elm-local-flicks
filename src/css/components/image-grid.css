@@ -1,0 +1,27 @@
+.image-grid {
+  column-count: 1;
+  column-gap: .3rem;
+
+  width: 90vw;
+  max-width: 1150px;
+  margin: 3em auto 8em;
+}
+
+.grid-item {
+  display: inline-block;
+  width: 100%;
+  margin-bottom: 0.3rem;
+}
+
+.grid-item img {
+  width: 100%;
+  height: auto;
+}
+
+@media (min-width: 600px) {
+  .image-grid { column-count: 2; }
+}
+
+@media (min-width: 900px) {
+  .image-grid { column-count: 3; }
+}
