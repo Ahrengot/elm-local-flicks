@@ -1,0 +1,21 @@
+@import "components/header";
+
+body {
+  background-color: #f7f7f9;
+}
+
+.app-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  width: 90vw;
+  max-width: 800px;
+  min-height: 100vh;
+
+  margin: auto;
+}
+
+.app-desc {
+  color: #999;
+}

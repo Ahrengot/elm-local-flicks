@@ -1,0 +1,10 @@
+.header {
+  text-align: center;
+}
+
+.header h1 {
+  font-weight: 200;
+  text-rendering: optimizeLegibility;
+  letter-spacing: 0.05em;
+  color: #666;
+}
