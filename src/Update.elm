@@ -56,6 +56,9 @@ update msg model =
             , (Task.attempt onLocationResponse Geolocation.now)
             )
 
+        ReceivedTime now ->
+            ( { model | now = now }, Cmd.none )
+
         ReceivedLocation loc ->
             ( { model
                 | location = Just loc
@@ -77,11 +80,8 @@ update msg model =
             case response of
                 Ok results ->
                     let
-                        place =
-                            List.head results
-
                         msg =
-                            case place of
+                            case (List.head results) of
                                 Just place ->
                                     (fetchImages place model.apiKey)
 

@@ -9,5 +9,6 @@ type Msg
     = RequestLocation
     | ReceivedLocation Location
     | LocationFailed String
+    | ReceivedTime Float
     | PlaceResponse (Result Http.Error (List Place))
     | ImagesResponse (Result Http.Error (List Image))

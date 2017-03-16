@@ -4,8 +4,9 @@ import Model exposing (Place, Image)
 import Msg exposing (..)
 import Geolocation exposing (Location)
 import Http
+import Date
 import Json.Decode as Decode
-import Json.Decode.Pipeline exposing (decode, required, requiredAt, optionalAt)
+import Json.Decode.Pipeline exposing (decode, required, requiredAt, optional)
 
 
 getFlickrApiUrl : String -> List ( String, String ) -> String
@@ -41,12 +42,16 @@ fetchPlace location apiKey =
 fetchImages : Place -> String -> Cmd Msg
 fetchImages place apiKey =
     let
+        -- Docs: https://www.flickr.com/services/api/flickr.photos.search.html
         url =
             getFlickrApiUrl
                 "?method=flickr.photos.search"
                 [ ( "radius", "10" )
                 , ( "radius_units", "km" )
+                , ( "per_page", "25" )
                 , ( "place_id", place.place_id )
+                , ( "extras", "date_upload,geo" )
+                , ( "sort", "date-posted-dsc" )
                 , ( "format", "json" )
                 , ( "nojsoncallback", "1" )
                 , ( "api_key", apiKey )
@@ -80,6 +85,21 @@ imageListDecoder =
     Decode.at [ "photos", "photo" ] (Decode.list imageDecoder)
 
 
+decodeDate : Decode.Decoder Date.Date
+decodeDate =
+    Decode.string
+        |> Decode.andThen
+            (\val ->
+                case String.toFloat val of
+                    Err err ->
+                        Decode.fail err
+
+                    Ok ms ->
+                        -- (ms * 1000) because timestamp is in seconds, not miliseconds
+                        Decode.succeed (Date.fromTime (ms * 1000))
+            )
+
+
 imageDecoder : Decode.Decoder Image
 imageDecoder =
     decode Image
@@ -89,3 +109,6 @@ imageDecoder =
         |> required "server" Decode.string
         |> required "farm" Decode.int
         |> required "title" Decode.string
+        |> required "dateupload" decodeDate
+        |> optional "longitude" Decode.string ""
+        |> optional "latitude" Decode.string ""

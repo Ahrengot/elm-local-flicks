@@ -3,8 +3,12 @@ module View exposing (..)
 import Model exposing (..)
 import Msg exposing (..)
 import Html exposing (..)
+import Date
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Geolocation
+import Date.Distance as TimeAgo
+import Util exposing (distanceInKm)
 
 
 app : Model -> Html Msg
@@ -42,7 +46,7 @@ app model =
 
         imgGrid =
             if (List.length model.images) > 0 then
-                viewImageGrid model.images
+                viewImageGrid model
             else
                 text ""
     in
@@ -84,21 +88,54 @@ viewLoadError msg =
         [ p [] [ text msg ] ]
 
 
-viewImageGrid : List Image -> Html Msg
-viewImageGrid images =
-    List.map viewImage images
+viewImageGrid : Model -> Html Msg
+viewImageGrid model =
+    List.map (viewImage model.location model.now) model.images
         |> div [ class "image-grid" ]
 
 
-viewImage : Image -> Html Msg
-viewImage data =
+distance : Geolocation.Location -> { lat : Float, lon : Float } -> String
+distance posA posB =
+    (toString posB.lat) ++ ", " ++ (toString posB.lon)
+
+
+viewImage : Maybe Geolocation.Location -> Float -> Image -> Html Msg
+viewImage userLocation now imgData =
     let
         -- https://farm{farm-id}.staticflickr.com/{server-id}/{id}_{secret}_[mstzb].jpg
         srcBase =
-            "https://farm" ++ (toString data.farm) ++ ".staticflickr.com/" ++ data.server ++ "/" ++ data.id ++ "_" ++ data.secret
+            "https://farm" ++ (toString imgData.farm) ++ ".staticflickr.com/" ++ imgData.server ++ "/" ++ imgData.id ++ "_" ++ imgData.secret
+
+        imgLocation =
+            { lat = Result.withDefault 0 (String.toFloat imgData.latitude)
+            , lon = Result.withDefault 0 (String.toFloat imgData.longitude)
+            }
+
+        distanceStr =
+            if imgLocation.lat /= 0 && imgLocation.lon /= 0 then
+                case userLocation of
+                    Nothing ->
+                        "Unavailable"
+
+                    Just loc ->
+                        distanceInKm loc.longitude loc.latitude imgLocation.lon imgLocation.lat
+            else
+                "Unavailable"
     in
         div [ class "grid-item" ]
-            [ a [ href (srcBase ++ "_b.jpg") ]
-                [ img [ Html.Attributes.src (srcBase ++ "_b.jpg") ] []
+            [ div [ class "img-card" ]
+                [ a [ href (srcBase ++ "_b.jpg") ]
+                    [ img [ Html.Attributes.src <| srcBase ++ "_z.jpg" ] []
+                    ]
+                , div [ class "img-meta" ]
+                    [ div [ class "img-date" ]
+                        [ span [ class "icon icon-date" ] []
+                        , text <| (TimeAgo.inWords (Date.fromTime now) imgData.date) ++ " ago"
+                        ]
+                    , div [ class "img-distance" ]
+                        [ span [ class "icon icon-location" ] []
+                        , text distanceStr
+                        ]
+                    ]
                 ]
             ]

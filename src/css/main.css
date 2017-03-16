@@ -1,5 +1,6 @@
 @import "components/header";
 @import "components/image-grid";
+@import "components/icon";
 
 body {
   background-color: #f7f7f9;

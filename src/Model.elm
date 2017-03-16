@@ -1,5 +1,6 @@
 module Model exposing (..)
 
+import Date
 import Geolocation
 
 
@@ -12,6 +13,7 @@ type alias Flags =
 type alias Model =
     { title : String
     , apiKey : String
+    , now : Float
     , loadingLocation : Bool
     , location : Maybe Geolocation.Location
     , locationLoadError : Maybe String
@@ -31,6 +33,9 @@ type alias Image =
     , server : String
     , farm : Int
     , title : String
+    , date : Date.Date
+    , longitude : String
+    , latitude : String
     }
 
 
@@ -51,6 +56,7 @@ initialState : Flags -> ( Model, Cmd msg )
 initialState flags =
     ( { title = flags.title
       , apiKey = flags.flickrApiKey
+      , now = 0
       , loadingLocation = False
       , location = Nothing
       , locationLoadError = Nothing

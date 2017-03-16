@@ -3,8 +3,6 @@ var webpack = require("webpack");
 var HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
-  devtool: "source-map",
-
   context: path.resolve(__dirname, './src'),
   entry: './app.js',
 
@@ -29,7 +27,6 @@ module.exports = {
         test: /\.elm$/,
         exclude: [/elm-stuff/, /node_modules/],
         use: [
-          'elm-hot-loader',
           'elm-webpack-loader?debug'
         ]
       },

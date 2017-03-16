@@ -5,6 +5,7 @@ import View
 import Model
 import Msg exposing (..)
 import Update
+import Time
 
 
 main : Program Model.Flags Model.Model Msg
@@ -19,4 +20,4 @@ main =
 
 subscriptions : Model.Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    Time.every Time.second ReceivedTime
