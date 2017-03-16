@@ -4,6 +4,7 @@
 
 body {
   background-color: #f7f7f9;
+  transition: background-color 0.85s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 .app-container {

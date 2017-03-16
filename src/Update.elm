@@ -1,4 +1,4 @@
-module Update exposing (..)
+port module Update exposing (..)
 
 import Msg exposing (..)
 import Model exposing (..)
@@ -6,6 +6,9 @@ import Command exposing (fetchPlace, fetchImages)
 import Task
 import Geolocation exposing (Location)
 import Http
+
+
+port changeBodyBg : String -> Cmd msg
 
 
 parseHttpError : Http.Error -> String
@@ -106,7 +109,7 @@ update msg model =
                         | loadingImages = False
                         , images = results
                       }
-                    , Cmd.none
+                    , changeBodyBg "#151515"
                     )
 
                 Err error ->
