@@ -17,9 +17,6 @@ type alias Model =
     , loadingLocation : Bool
     , location : Maybe Geolocation.Location
     , locationLoadError : Maybe String
-    , loadingPlace : Bool
-    , place : Maybe Place
-    , placeLoadError : Maybe String
     , images : List Image
     , loadingImages : Bool
     , imagesLoadError : Maybe String
@@ -37,35 +34,3 @@ type alias Image =
     , longitude : String
     , latitude : String
     }
-
-
-type alias Place =
-    { place_id : String
-    , woeid : String
-    , latitude : String
-    , longitude : String
-    , place_url : String
-    , place_type : String
-    , place_type_id : String
-    , name : String
-    , woe_name : String
-    }
-
-
-initialState : Flags -> ( Model, Cmd msg )
-initialState flags =
-    ( { title = flags.title
-      , apiKey = flags.flickrApiKey
-      , now = 0
-      , loadingLocation = False
-      , location = Nothing
-      , locationLoadError = Nothing
-      , loadingPlace = False
-      , place = Nothing
-      , placeLoadError = Nothing
-      , images = []
-      , loadingImages = False
-      , imagesLoadError = Nothing
-      }
-    , Cmd.none
-    )

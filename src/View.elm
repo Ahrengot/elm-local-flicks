@@ -18,7 +18,7 @@ app model =
             if (List.length model.images) > 0 then
                 p [ class "results-description" ] [ text ("Found " ++ (toString (List.length model.images)) ++ " images.") ]
             else
-                viewGetLocationBtn (model.loadingPlace || model.loadingLocation || model.loadingImages)
+                viewGetLocationBtn (model.loadingLocation || model.loadingImages)
 
         locationErr =
             case model.locationLoadError of
@@ -27,22 +27,6 @@ app model =
 
                 Just err ->
                     viewLoadError err
-
-        placeErr =
-            case model.placeLoadError of
-                Nothing ->
-                    text ""
-
-                Just err ->
-                    viewLoadError err
-
-        titleTxt =
-            case model.place of
-                Nothing ->
-                    model.title
-
-                Just loc ->
-                    loc.woe_name
 
         imgGrid =
             if (List.length model.images) > 0 then
@@ -53,11 +37,10 @@ app model =
         div [ class "app-container" ]
             [ div []
                 [ header [ class "header" ]
-                    [ h1 [] [ text titleTxt ]
+                    [ h1 [] [ text model.title ]
                     , loadBtn
                     ]
                 , locationErr
-                , placeErr
                 , imgGrid
                 ]
             ]

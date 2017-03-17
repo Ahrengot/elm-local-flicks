@@ -2,7 +2,7 @@ module Msg exposing (..)
 
 import Geolocation exposing (Error, Location)
 import Http
-import Model exposing (Place, Image)
+import Model exposing (Image)
 
 
 type Msg

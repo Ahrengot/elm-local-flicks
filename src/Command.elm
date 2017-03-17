@@ -1,6 +1,6 @@
 module Command exposing (..)
 
-import Model exposing (Place, Image)
+import Model exposing (Image)
 import Msg exposing (..)
 import Geolocation exposing (Location)
 import Http
@@ -43,25 +43,6 @@ fetchImages location apiKey =
     in
         Http.get url imageListDecoder
             |> Http.send ImagesResponse
-
-
-placeListDecoder : Decode.Decoder (List Place)
-placeListDecoder =
-    Decode.at [ "places", "place" ] (Decode.list placeDecoder)
-
-
-placeDecoder : Decode.Decoder Place
-placeDecoder =
-    decode Place
-        |> required "place_id" Decode.string
-        |> required "woeid" Decode.string
-        |> required "latitude" Decode.string
-        |> required "longitude" Decode.string
-        |> required "place_url" Decode.string
-        |> required "place_type" Decode.string
-        |> required "place_type_id" Decode.string
-        |> required "name" Decode.string
-        |> required "woe_name" Decode.string
 
 
 imageListDecoder : Decode.Decoder (List Image)

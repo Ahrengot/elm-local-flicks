@@ -66,7 +66,6 @@ update msg model =
             ( { model
                 | location = Just loc
                 , loadingLocation = False
-                , loadingPlace = True
               }
             , (fetchImages loc model.apiKey)
             )
