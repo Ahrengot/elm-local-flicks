@@ -22,34 +22,18 @@ getFlickrApiUrl endpoint args =
         "https://api.flickr.com/services/rest/" ++ endpoint ++ queryString
 
 
-fetchPlace : Location -> String -> Cmd Msg
-fetchPlace location apiKey =
-    let
-        url =
-            getFlickrApiUrl
-                "?method=flickr.places.findByLatLon"
-                [ ( "lat", toString location.latitude )
-                , ( "lon", toString location.longitude )
-                , ( "format", "json" )
-                , ( "nojsoncallback", "1" )
-                , ( "api_key", apiKey )
-                ]
-    in
-        Http.get url placeListDecoder
-            |> Http.send PlaceResponse
-
-
-fetchImages : Place -> String -> Cmd Msg
-fetchImages place apiKey =
+fetchImages : Location -> String -> Cmd Msg
+fetchImages location apiKey =
     let
         -- Docs: https://www.flickr.com/services/api/flickr.photos.search.html
         url =
             getFlickrApiUrl
                 "?method=flickr.photos.search"
-                [ ( "radius", "10" )
+                [ ( "radius", "5" )
                 , ( "radius_units", "km" )
                 , ( "per_page", "25" )
-                , ( "place_id", place.place_id )
+                , ( "lat", toString location.latitude )
+                , ( "lon", toString location.longitude )
                 , ( "extras", "date_upload,geo" )
                 , ( "sort", "date-posted-dsc" )
                 , ( "format", "json" )

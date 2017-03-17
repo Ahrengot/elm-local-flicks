@@ -2,7 +2,7 @@ port module Update exposing (..)
 
 import Msg exposing (..)
 import Model exposing (..)
-import Command exposing (fetchPlace, fetchImages)
+import Command exposing (fetchImages)
 import Task
 import Geolocation exposing (Location)
 import Http
@@ -68,7 +68,7 @@ update msg model =
                 , loadingLocation = False
                 , loadingPlace = True
               }
-            , (fetchPlace loc model.apiKey)
+            , (fetchImages loc model.apiKey)
             )
 
         LocationFailed err ->
@@ -78,29 +78,6 @@ update msg model =
               }
             , Cmd.none
             )
-
-        PlaceResponse response ->
-            case response of
-                Ok results ->
-                    let
-                        msg =
-                            case (List.head results) of
-                                Just place ->
-                                    (fetchImages place model.apiKey)
-
-                                Nothing ->
-                                    Cmd.none
-                    in
-                        ( { model
-                            | loadingPlace = False
-                            , place = List.head results
-                            , loadingImages = True
-                          }
-                        , msg
-                        )
-
-                Err error ->
-                    ( { model | placeLoadError = Just (parseHttpError error), loadingPlace = False }, Cmd.none )
 
         ImagesResponse response ->
             case response of
