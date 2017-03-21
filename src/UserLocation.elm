@@ -50,7 +50,7 @@ onLocationResponse result =
                     LocationFailed "Location unavailable"
 
                 Geolocation.Timeout err ->
-                    LocationFailed "Request timed out"
+                    LocationFailed "Request timed out. Try again."
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )

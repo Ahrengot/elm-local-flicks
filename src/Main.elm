@@ -67,11 +67,11 @@ update msg model =
             )
 
         AutocompleteMsg acMsg ->
-            ( { model
-                | autocomplete = Autocomplete.update acMsg model.autocomplete
-              }
-            , Cmd.none
-            )
+            let
+                ( acState, acCmd ) =
+                    Autocomplete.update acMsg model.autocomplete
+            in
+                ( { model | autocomplete = acState }, Cmd.map AutocompleteMsg acCmd )
 
         LocationMsg locMsg ->
             let
@@ -119,14 +119,14 @@ main : Program Flags Model Msg
 main =
     Html.programWithFlags
         { init = initialState
-        , view = app
+        , view = viewApp
         , update = update
         , subscriptions = subscriptions
         }
 
 
-app : Model -> Html Msg
-app model =
+viewApp : Model -> Html Msg
+viewApp model =
     let
         resultsText =
             if (List.length model.flickrImages.results) > 0 then
@@ -150,6 +150,7 @@ app model =
             [ div []
                 [ header [ class "header" ]
                     [ h1 [] [ text model.title ]
+                    , p [ class "app-desc" ] [ text "Search for Flickr images posted around The World" ]
                     , Html.map AutocompleteMsg <| Autocomplete.view model.autocomplete
                     , div [ class "btn-group" ]
                         [ Html.map LocationMsg <| UserLocation.viewGetLocationBtn model.location
@@ -163,8 +164,8 @@ app model =
 
 viewError : String -> Html Msg
 viewError msg =
-    div [ class "alert alert-danger" ]
-        [ p [] [ text msg ] ]
+    div [ class "alert alert-danger mt-3 mb-3" ]
+        [ p [ class "mb-0" ] [ text msg ] ]
 
 
 viewImageGrid : Model -> Html FlickrImages.Msg
@@ -180,4 +181,7 @@ viewImageGrid model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Time.every (10 * Time.second) UpdateTime
+    Sub.batch
+        [ (Time.every Time.minute UpdateTime)
+        , Sub.map AutocompleteMsg <| Autocomplete.subscriptions model.autocomplete
+        ]

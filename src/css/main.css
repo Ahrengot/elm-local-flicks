@@ -1,10 +1,11 @@
 @import "components/header";
+@import "components/autocomplete";
 @import "components/image-grid";
 @import "components/icon";
 
 body {
   background-color: #f7f7f9;
-  transition: background-color 0.85s cubic-bezier(0.19, 1, 0.22, 1);
+  transition: background-color 1.35s 0.35s cubic-bezier(0.19, 1, 0.22, 1);
 }
 
 .app-container {
