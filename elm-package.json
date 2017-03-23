@@ -15,6 +15,7 @@
         "elm-lang/geolocation": "1.0.2 <= v < 2.0.0",
         "elm-lang/html": "2.0.0 <= v < 3.0.0",
         "elm-lang/http": "1.0.0 <= v < 2.0.0",
+        "fredcy/elm-debouncer": "1.0.2 <= v < 2.0.0",
         "myrho/elm-round": "1.0.2 <= v < 2.0.0",
         "thebritican/elm-autocomplete": "4.0.3 <= v < 5.0.0"
     },

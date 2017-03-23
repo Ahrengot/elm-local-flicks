@@ -8,6 +8,7 @@ import Html.Attributes exposing (..)
 import Components.LocationAutocomplete as Autocomplete
 import UserLocation
 import FlickrImages
+import Html.Lazy exposing (lazy)
 
 
 -- Initial model and state
@@ -16,12 +17,14 @@ import FlickrImages
 type alias Flags =
     { title : String
     , flickrApiKey : String
+    , gmapsApiKey : String
     }
 
 
 type alias Model =
     { title : String
-    , apiKey : String
+    , flickrApiKey : String
+    , gmapsApiKey : String
     , now : Float
     , autocomplete : Autocomplete.Model
     , location : UserLocation.Model
@@ -32,7 +35,8 @@ type alias Model =
 initialState : Flags -> ( Model, Cmd Msg )
 initialState flags =
     ( { title = flags.title
-      , apiKey = flags.flickrApiKey
+      , flickrApiKey = flags.flickrApiKey
+      , gmapsApiKey = flags.gmapsApiKey
       , now = 0
       , autocomplete = Autocomplete.initialState
       , location = UserLocation.initialState
@@ -81,7 +85,7 @@ update msg model =
                 thisCmd =
                     case locMsg of
                         UserLocation.ReceivedLocation loc ->
-                            Cmd.map FlickrMsg <| FlickrImages.fetchImages loc model.apiKey
+                            Cmd.map FlickrMsg <| FlickrImages.fetchImages loc model.flickrApiKey
 
                         _ ->
                             Cmd.none
@@ -151,13 +155,13 @@ viewApp model =
                 [ header [ class "header" ]
                     [ h1 [] [ text model.title ]
                     , p [ class "app-desc" ] [ text "Search for Flickr images posted around The World" ]
-                    , Html.map AutocompleteMsg <| Autocomplete.view model.autocomplete
+                    , Html.map AutocompleteMsg <| lazy Autocomplete.view model.autocomplete
                     , div [ class "btn-group" ]
-                        [ Html.map LocationMsg <| UserLocation.viewGetLocationBtn model.location
+                        [ Html.map LocationMsg <| lazy UserLocation.viewGetLocationBtn model.location
                         ]
                     ]
                 , div [ class "errors" ] errors
-                , Html.map FlickrMsg <| viewImageGrid model
+                , Html.map FlickrMsg <| lazy viewImageGrid model
                 ]
             ]
 

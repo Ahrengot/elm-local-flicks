@@ -1,11 +1,13 @@
 module Components.LocationAutocomplete exposing (..)
 
 import Autocomplete
+import Debounce
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Http
 import Json.Decode as JD
-import Regex exposing (regex)
+import Util exposing (highlightMatches, parseHttpError)
 
 
 -- Model & initial state
@@ -17,6 +19,7 @@ type alias Model =
     , showSuggestions : Bool
     , suggestions : List Location
     , selected : Maybe Location
+    , searchDebouncer : Debounce.Model String
     , loading : Bool
     , loadError : Maybe String
     , component : Autocomplete.State
@@ -25,29 +28,19 @@ type alias Model =
 
 type alias Location =
     { name : String
-    , lat : Int
-    , lng : Int
+    , lat : Float
+    , lng : Float
     }
 
 
 initialState : Model
 initialState =
-    { query = "Køben"
+    { query = ""
     , maxResults = 8
-    , showSuggestions = True
-    , suggestions =
-        [ Location "Jegindø" 0 0
-        , Location "Aarhus" 0 0
-        , Location "København" 0 0
-        , Location "København 2" 0 0
-        , Location "København 3" 0 0
-        , Location "Bornholnmsk" 0 0
-        , Location "New York" 0 0
-        , Location "Berlin" 0 0
-        , Location "London" 0 0
-        , Location "Silkeborg" 0 0
-        ]
-    , selected = Just (Location "København 2" 0 0)
+    , showSuggestions = False
+    , suggestions = []
+    , selected = Nothing
+    , searchDebouncer = Debounce.init 600 ""
     , loading = False
     , loadError = Nothing
     , component = Autocomplete.empty
@@ -60,6 +53,8 @@ initialState =
 
 type Msg
     = UpdateQuery String
+    | DebouncerMsg (Debounce.Msg String)
+    | GmapsSuggestionsResponse (Result Http.Error (List Location))
     | UpdateComponent Autocomplete.Msg
     | Wrap Bool
     | Reset
@@ -73,16 +68,68 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         UpdateQuery newInput ->
-            ( { model
-                | query = newInput
-                , showSuggestions =
-                    if newInput == "" then
-                        False
-                    else
-                        not <| List.isEmpty <| filterResults model.query model.suggestions
-              }
-            , Cmd.none
-            )
+            let
+                ( newDebouncer, cmd, settledMaybe ) =
+                    Debounce.update (Debounce.Change newInput) model.searchDebouncer
+
+                newModel =
+                    { model
+                        | query = newInput
+                        , loading =
+                            if newInput == "" then
+                                False
+                            else
+                                model.loading
+                        , showSuggestions =
+                            if newInput == "" then
+                                False
+                            else
+                                not <| List.isEmpty model.suggestions
+                        , searchDebouncer = newDebouncer
+                    }
+            in
+                ( newModel, Cmd.map DebouncerMsg cmd )
+
+        DebouncerMsg dMsg ->
+            let
+                ( newDebouncer, debounceCmd, settledMaybe ) =
+                    Debounce.update dMsg model.searchDebouncer
+
+                cmd =
+                    case settledMaybe of
+                        Nothing ->
+                            Cmd.none
+
+                        Just _ ->
+                            if model.query == "" then
+                                Cmd.none
+                            else
+                                fetchSuggestions model
+            in
+                ( { model
+                    | searchDebouncer = newDebouncer
+                    , suggestions =
+                        if cmd == Cmd.none then
+                            model.suggestions
+                        else
+                            []
+                    , loadError = Nothing
+                    , loading =
+                        if cmd == Cmd.none then
+                            model.loading
+                        else
+                            True
+                  }
+                , cmd
+                )
+
+        GmapsSuggestionsResponse response ->
+            case response of
+                Ok suggestions ->
+                    ( { model | loading = False, suggestions = suggestions, showSuggestions = True }, Cmd.none )
+
+                Err error ->
+                    ( { model | loading = False, loadError = Just <| parseHttpError error }, Cmd.none )
 
         UpdateComponent autoMsg ->
             let
@@ -138,7 +185,7 @@ update msg model =
 
         Wrap toTop ->
             case model.selected of
-                Just person ->
+                Just item ->
                     update Reset model
 
                 Nothing ->
@@ -220,6 +267,34 @@ subscriptions model =
 
 
 
+-- Http & Http response decoding
+
+
+fetchSuggestions : Model -> Cmd Msg
+fetchSuggestions model =
+    let
+        url =
+            "https://maps.googleapis.com/maps/api/geocode/json?address=" ++ (Http.encodeUri model.query) ++ "&client_id="
+    in
+        Http.get url suggestionListDecoder
+            |> Http.send GmapsSuggestionsResponse
+
+
+suggestionListDecoder : JD.Decoder (List Location)
+suggestionListDecoder =
+    JD.at [ "results" ] (JD.list suggestionDecoder)
+
+
+suggestionDecoder : JD.Decoder Location
+suggestionDecoder =
+    JD.map3
+        Location
+        (JD.field "formatted_address" JD.string)
+        (JD.at [ "geometry", "location", "lat" ] JD.float)
+        (JD.at [ "geometry", "location", "lng" ] JD.float)
+
+
+
 -- Filtering & sorting logic
 
 
@@ -237,11 +312,7 @@ isMatch query item =
 
 filterResults : String -> List Location -> List Location
 filterResults query results =
-    let
-        lcQuery =
-            String.toLower query
-    in
-        List.filter (isMatch lcQuery) results
+    results
 
 
 
@@ -290,7 +361,27 @@ view model =
             viewMenu model
           else
             text ""
+        , if model.loading then
+            viewLoadIndicator
+          else
+            text ""
+        , case model.loadError of
+            Nothing ->
+                text ""
+
+            Just err ->
+                viewLoadError err
         ]
+
+
+viewLoadIndicator : Html Msg
+viewLoadIndicator =
+    div [ class "autocomplete-load-indicator" ] [ text "Loading..." ]
+
+
+viewLoadError : String -> Html Msg
+viewLoadError err =
+    div [ class "autocomplete-load-error" ] [ text err ]
 
 
 viewMenu : Model -> Html Msg
@@ -304,82 +395,6 @@ viewMenu model =
     in
         div [ class "autocomplete-menu" ]
             [ Html.map UpdateComponent acView ]
-
-
-
-{-
-   highlightMatches
-
-    Wraps matches in `<strong>` elements and returns a list of Html
-    If no matches are found then return a list with a single child
-    containing the original string wrapped in a `<span>`
--}
-
-
-highlightMatches : String -> String -> List (Html Never)
-highlightMatches needle haystack =
-    let
-        needleLen =
-            String.length needle
-
-        haystackLen =
-            String.length haystack
-
-        lcNeedle =
-            String.toLower needle
-
-        lcHaystack =
-            String.toLower haystack
-
-        matches : List Regex.Match
-        matches =
-            Regex.find Regex.All (regex lcNeedle) lcHaystack
-
-        matchByNumber : Int -> Maybe Regex.Match
-        matchByNumber num =
-            List.head <| List.filter (\match -> match.number == num) matches
-
-        highlightMatch : Regex.Match -> Html Never
-        highlightMatch match =
-            let
-                before =
-                    if match.index == 0 then
-                        ""
-                    else
-                        case matchByNumber (match.number - 1) of
-                            Nothing ->
-                                String.slice 0 match.index haystack
-
-                            Just prevMatch ->
-                                String.slice (prevMatch.index + 1) match.index haystack
-
-                after =
-                    case (List.head <| List.reverse matches) of
-                        Nothing ->
-                            ""
-
-                        Just lastMatch ->
-                            -- Check if this match is the last match we found
-                            if lastMatch.number == match.number then
-                                -- Check if last match is also last char in string. If not
-                                -- then add the remaining characters
-                                if (lastMatch.index + needleLen) == haystackLen then
-                                    ""
-                                else
-                                    String.slice (lastMatch.index + needleLen) haystackLen haystack
-                            else
-                                ""
-            in
-                span []
-                    [ text before
-                    , strong [] [ text <| String.slice match.index (match.index + needleLen) haystack ]
-                    , text after
-                    ]
-    in
-        if List.isEmpty matches then
-            [ span [] [ text haystack ] ]
-        else
-            List.map highlightMatch matches
 
 
 viewConfig : Model -> Autocomplete.ViewConfig Location
