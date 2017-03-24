@@ -6,6 +6,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Http
+import Task
 import Json.Decode as JD
 import Util exposing (highlightMatches, parseHttpError)
 
@@ -60,6 +61,7 @@ type Msg
     | Reset
     | HandleEscape
     | SelectItem String
+    | AfterSelectItem Location
     | PreviewItem String
     | NoOp
 
@@ -139,7 +141,7 @@ update msg model =
                         autoMsg
                         model.maxResults
                         model.component
-                        (filterResults model.query model.suggestions)
+                        model.suggestions
 
                 newModel =
                     { model | component = newComponentState }
@@ -153,13 +155,10 @@ update msg model =
 
         HandleEscape ->
             let
-                results =
-                    filterResults model.query model.suggestions
-
                 stateAfterEscKey =
                     { model
                         | query =
-                            if List.isEmpty results then
+                            if List.isEmpty model.suggestions then
                                 ""
                             else
                                 model.query
@@ -190,20 +189,17 @@ update msg model =
 
                 Nothing ->
                     let
-                        results =
-                            filterResults model.query model.suggestions
-
                         componentState =
                             if toTop then
-                                Autocomplete.resetToLastItem updateComponentConf results model.maxResults model.component
+                                Autocomplete.resetToLastItem updateComponentConf model.suggestions model.maxResults model.component
                             else
-                                Autocomplete.resetToFirstItem updateComponentConf results model.maxResults model.component
+                                Autocomplete.resetToFirstItem updateComponentConf model.suggestions model.maxResults model.component
 
                         selectedItem =
                             if toTop then
-                                List.head <| List.reverse <| List.take model.maxResults <| results
+                                List.head <| List.reverse <| List.take model.maxResults <| model.suggestions
                             else
-                                List.head <| List.take model.maxResults <| results
+                                List.head <| List.take model.maxResults <| model.suggestions
                     in
                         ( { model
                             | component = componentState
@@ -226,8 +222,16 @@ update msg model =
                 , component = Autocomplete.empty
                 , showSuggestions = False
               }
-            , Cmd.none
+            , case model.selected of
+                Nothing ->
+                    Cmd.none
+
+                Just location ->
+                    Task.perform AfterSelectItem <| Task.succeed location
             )
+
+        AfterSelectItem location ->
+            ( model, Cmd.none )
 
         PreviewItem id ->
             ( { model
@@ -305,16 +309,6 @@ getItem suggestions id =
         |> Maybe.withDefault (Location "" 0 0)
 
 
-isMatch : String -> Location -> Bool
-isMatch query item =
-    String.contains query (String.toLower item.name)
-
-
-filterResults : String -> List Location -> List Location
-filterResults query results =
-    results
-
-
 
 -- View
 
@@ -387,11 +381,8 @@ viewLoadError err =
 viewMenu : Model -> Html Msg
 viewMenu model =
     let
-        results =
-            filterResults model.query model.suggestions
-
         acView =
-            Autocomplete.view (viewConfig model) model.maxResults model.component results
+            Autocomplete.view (viewConfig model) model.maxResults model.component model.suggestions
     in
         div [ class "autocomplete-menu" ]
             [ Html.map UpdateComponent acView ]

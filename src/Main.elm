@@ -26,9 +26,17 @@ type alias Model =
     , flickrApiKey : String
     , gmapsApiKey : String
     , now : Float
+    , selectedLocation : Maybe Location
     , autocomplete : Autocomplete.Model
-    , location : UserLocation.Model
+    , userLocation : UserLocation.Model
     , flickrImages : FlickrImages.Model
+    }
+
+
+type alias Location =
+    { name : String
+    , lat : Float
+    , lng : Float
     }
 
 
@@ -38,8 +46,9 @@ initialState flags =
       , flickrApiKey = flags.flickrApiKey
       , gmapsApiKey = flags.gmapsApiKey
       , now = 0
+      , selectedLocation = Nothing
       , autocomplete = Autocomplete.initialState
-      , location = UserLocation.initialState
+      , userLocation = UserLocation.initialState
       , flickrImages = FlickrImages.initialState
       }
     , Task.perform UpdateTime Time.now
@@ -56,7 +65,7 @@ port changeBodyBg : String -> Cmd msg
 type Msg
     = UpdateTime Float
     | AutocompleteMsg Autocomplete.Msg
-    | LocationMsg UserLocation.Msg
+    | UserLocationMsg UserLocation.Msg
     | FlickrMsg FlickrImages.Msg
 
 
@@ -64,37 +73,58 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         UpdateTime now ->
-            ( { model
-                | now = now
-              }
-            , Cmd.none
-            )
+            ( { model | now = now }, Cmd.none )
 
         AutocompleteMsg acMsg ->
             let
-                ( acState, acCmd ) =
+                ( newAutocomplete, acCmd ) =
                     Autocomplete.update acMsg model.autocomplete
-            in
-                ( { model | autocomplete = acState }, Cmd.map AutocompleteMsg acCmd )
 
-        LocationMsg locMsg ->
-            let
-                ( locationState, locCmd ) =
-                    UserLocation.update locMsg model.location
-
-                thisCmd =
-                    case locMsg of
-                        UserLocation.ReceivedLocation loc ->
-                            Cmd.map FlickrMsg <| FlickrImages.fetchImages loc model.flickrApiKey
+                newModel =
+                    case acMsg of
+                        Autocomplete.AfterSelectItem location ->
+                            { model | autocomplete = newAutocomplete, selectedLocation = Just location }
 
                         _ ->
+                            { model | autocomplete = newAutocomplete }
+
+                cmd =
+                    case acMsg of
+                        Autocomplete.AfterSelectItem location ->
+                            Cmd.map FlickrMsg <| FlickrImages.fetchImages location model.flickrApiKey
+
+                        _ ->
+                            Cmd.map AutocompleteMsg acCmd
+            in
+                ( newModel, cmd )
+
+        UserLocationMsg locMsg ->
+            let
+                ( newUserLocation, locCmd ) =
+                    UserLocation.update locMsg model.userLocation
+
+                location =
+                    case locMsg of
+                        UserLocation.ReceivedLocation loc ->
+                            Just <| Location "My current location" loc.latitude loc.longitude
+
+                        _ ->
+                            Nothing
+
+                thisCmd =
+                    case location of
+                        Just loc ->
+                            Cmd.map FlickrMsg <| FlickrImages.fetchImages loc model.flickrApiKey
+
+                        Nothing ->
                             Cmd.none
 
                 finalCmd =
-                    Cmd.batch [ thisCmd, (Cmd.map LocationMsg locCmd) ]
+                    Cmd.batch [ thisCmd, (Cmd.map UserLocationMsg locCmd) ]
             in
                 ( { model
-                    | location = locationState
+                    | userLocation = newUserLocation
+                    , selectedLocation = location
                   }
                 , finalCmd
                 )
@@ -139,7 +169,7 @@ viewApp model =
                 text ""
 
         errors =
-            [ model.location.loadError, model.flickrImages.loadError ]
+            [ model.userLocation.loadError, model.flickrImages.loadError ]
                 |> List.map
                     (\maybeErr ->
                         case maybeErr of
@@ -157,7 +187,7 @@ viewApp model =
                     , p [ class "app-desc" ] [ text "Search for Flickr images posted around The World" ]
                     , Html.map AutocompleteMsg <| lazy Autocomplete.view model.autocomplete
                     , div [ class "btn-group" ]
-                        [ Html.map LocationMsg <| lazy UserLocation.viewGetLocationBtn model.location
+                        [ Html.map UserLocationMsg <| lazy UserLocation.viewGetLocationBtn model.userLocation
                         ]
                     ]
                 , div [ class "errors" ] errors
@@ -175,7 +205,7 @@ viewError msg =
 viewImageGrid : Model -> Html FlickrImages.Msg
 viewImageGrid model =
     model.flickrImages.results
-        |> List.map (FlickrImages.viewImage model.location.location model.now)
+        |> List.map (FlickrImages.viewImage model.selectedLocation model.now)
         |> div [ class "image-grid" ]
 
 

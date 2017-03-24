@@ -3,7 +3,6 @@ module FlickrImages exposing (..)
 import Date
 import Date.Distance as TimeAgo
 import Http
-import Geolocation
 import Html exposing (..)
 import Html.Attributes exposing (class, href)
 import Json.Decode as Decode
@@ -31,6 +30,13 @@ type alias Image =
     , date : Date.Date
     , longitude : String
     , latitude : String
+    }
+
+
+type alias Location =
+    { name : String
+    , lat : Float
+    , lng : Float
     }
 
 
@@ -85,7 +91,7 @@ getFlickrApiUrl endpoint args =
         "https://api.flickr.com/services/rest/" ++ endpoint ++ queryString
 
 
-fetchImages : Geolocation.Location -> String -> Cmd Msg
+fetchImages : Location -> String -> Cmd Msg
 fetchImages location apiKey =
     let
         -- Docs: https://www.flickr.com/services/api/flickr.photos.search.html
@@ -95,8 +101,8 @@ fetchImages location apiKey =
                 [ ( "radius", "5" )
                 , ( "radius_units", "km" )
                 , ( "per_page", "25" )
-                , ( "lat", toString location.latitude )
-                , ( "lon", toString location.longitude )
+                , ( "lat", toString location.lat )
+                , ( "lon", toString location.lng )
                 , ( "extras", "date_upload,geo" )
                 , ( "sort", "date-posted-dsc" )
                 , ( "format", "json" )
@@ -131,7 +137,7 @@ imageDecoder =
 -- Views
 
 
-viewImage : Maybe Geolocation.Location -> Float -> Image -> Html Msg
+viewImage : Maybe Location -> Float -> Image -> Html Msg
 viewImage userLocation now imgData =
     let
         -- https://farm{farm-id}.staticflickr.com/{server-id}/{id}_{secret}_[mstzb].jpg
@@ -150,7 +156,7 @@ viewImage userLocation now imgData =
                         "Unavailable"
 
                     Just loc ->
-                        distanceInKm loc.longitude loc.latitude imgLocation.lon imgLocation.lat
+                        distanceInKm loc.lng loc.lat imgLocation.lon imgLocation.lat
             else
                 "Unavailable"
     in
