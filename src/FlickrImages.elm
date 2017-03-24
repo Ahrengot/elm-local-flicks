@@ -53,25 +53,33 @@ initialState =
 
 
 type Msg
-    = ImageSearchResponse (Result Http.Error (List Image))
+    = LoadImages Location String
+    | ImageSearchResponse (Result Http.Error (List Image))
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        ImageSearchResponse response ->
-            case response of
-                Ok results ->
-                    { model
-                        | loading = False
-                        , results = results
-                    }
+        LoadImages location apiKey ->
+            ( { model | loading = True, results = [] }, fetchImages location apiKey )
 
-                Err error ->
-                    { model
-                        | loadError = Just (parseHttpError error)
-                        , loading = False
-                    }
+        ImageSearchResponse response ->
+            let
+                newModel =
+                    case response of
+                        Ok results ->
+                            { model
+                                | loading = False
+                                , results = results
+                            }
+
+                        Err error ->
+                            { model
+                                | loadError = Just (parseHttpError error)
+                                , loading = False
+                            }
+            in
+                ( newModel, Cmd.none )
 
 
 

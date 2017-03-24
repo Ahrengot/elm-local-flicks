@@ -80,23 +80,28 @@ update msg model =
                 ( newAutocomplete, acCmd ) =
                     Autocomplete.update acMsg model.autocomplete
 
-                newModel =
+                ( newModel, thisCmd ) =
                     case acMsg of
                         Autocomplete.AfterSelectItem location ->
-                            { model | autocomplete = newAutocomplete, selectedLocation = Just location }
+                            let
+                                ( newFlickrImages, fCmd ) =
+                                    FlickrImages.update (FlickrImages.LoadImages location model.flickrApiKey) model.flickrImages
+                            in
+                                ( { model
+                                    | autocomplete = newAutocomplete
+                                    , selectedLocation = Just location
+                                    , flickrImages = newFlickrImages
+                                  }
+                                , Cmd.map FlickrMsg fCmd
+                                )
 
                         _ ->
-                            { model | autocomplete = newAutocomplete }
+                            ( { model | autocomplete = newAutocomplete }, Cmd.none )
 
                 cmd =
-                    case acMsg of
-                        Autocomplete.AfterSelectItem location ->
-                            Cmd.map FlickrMsg <| FlickrImages.fetchImages location model.flickrApiKey
-
-                        _ ->
-                            Cmd.map AutocompleteMsg acCmd
+                    Cmd.map AutocompleteMsg acCmd
             in
-                ( newModel, cmd )
+                ( newModel, Cmd.batch [ cmd, thisCmd ] )
 
         UserLocationMsg locMsg ->
             let
@@ -111,38 +116,46 @@ update msg model =
                         _ ->
                             Nothing
 
-                thisCmd =
+                ( newModel, cmd ) =
                     case location of
-                        Just loc ->
-                            Cmd.map FlickrMsg <| FlickrImages.fetchImages loc model.flickrApiKey
-
                         Nothing ->
-                            Cmd.none
+                            ( { model | userLocation = newUserLocation }, Cmd.map UserLocationMsg locCmd )
 
-                finalCmd =
-                    Cmd.batch [ thisCmd, (Cmd.map UserLocationMsg locCmd) ]
+                        Just location ->
+                            let
+                                ( newFlickrImages, fCmd ) =
+                                    FlickrImages.update (FlickrImages.LoadImages location model.flickrApiKey) model.flickrImages
+                            in
+                                ( { model
+                                    | userLocation = newUserLocation
+                                    , flickrImages = newFlickrImages
+                                  }
+                                , Cmd.map FlickrMsg fCmd
+                                )
             in
-                ( { model
-                    | userLocation = newUserLocation
-                    , selectedLocation = location
-                  }
-                , finalCmd
-                )
+                ( newModel, cmd )
 
         FlickrMsg fMsg ->
-            ( { model
-                | flickrImages = FlickrImages.update fMsg model.flickrImages
-              }
-            , case fMsg of
-                -- Change body bg if we have image results
-                FlickrImages.ImageSearchResponse res ->
-                    case res of
-                        Ok results ->
-                            changeBodyBg "#151515"
+            let
+                ( newFlickrImages, fCmd ) =
+                    FlickrImages.update fMsg model.flickrImages
+            in
+                ( { model
+                    | flickrImages = newFlickrImages
+                  }
+                , case fMsg of
+                    -- Change body bg if we have image results
+                    FlickrImages.ImageSearchResponse res ->
+                        case res of
+                            Ok results ->
+                                changeBodyBg "#151515"
 
-                        Err error ->
-                            changeBodyBg ""
-            )
+                            Err error ->
+                                changeBodyBg ""
+
+                    _ ->
+                        Cmd.none
+                )
 
 
 
