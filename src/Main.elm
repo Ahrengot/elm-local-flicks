@@ -70,6 +70,16 @@ initialState flags location =
         ( model, Cmd.batch [ cmd, initCmd ] )
 
 
+suggestions : List String
+suggestions =
+    [ "#/location/Nuuk/@/64.18140989999999,-51.694138"
+    , "#/location/Sofia/@/42.6977082,23.3218675"
+    , "#/location/Dubai/@/25.2048493,55.2707828"
+    , "#/location/Manhattan/@/40.7830603,-73.9712488"
+    , "#/location/Kabul/@/34.5553494,69.207486"
+    ]
+
+
 
 -- Update and messages
 
@@ -193,7 +203,7 @@ modelFromUrlLocation urlLocation model =
                             FlickrImages.update (FlickrImages.LoadImages location model.flickrApiKey) model.flickrImages
 
                         ( newAutocomplete, _ ) =
-                            Autocomplete.update (Autocomplete.SetDefaultQuery <| Maybe.withDefault "" <| decodeUri locationName) model.autocomplete
+                            Autocomplete.update (Autocomplete.SetDefaultQuery <| Maybe.withDefault "unknown location" <| decodeUri locationName) model.autocomplete
                     in
                         ( Just location, newFlickrImages, newAutocomplete, Cmd.map FlickrMsg fCmd )
 
@@ -297,9 +307,12 @@ viewError msg =
 
 viewImageGrid : Model -> Html FlickrImages.Msg
 viewImageGrid model =
-    model.flickrImages.results
-        |> List.map (FlickrImages.viewImage model.selectedLocation model.now)
-        |> div [ class "image-grid" ]
+    if model.flickrImages.loading then
+        div [ class "image-grid-load-indicator" ] [ text "Loading images..." ]
+    else
+        model.flickrImages.results
+            |> List.map (FlickrImages.viewImage model.selectedLocation model.now)
+            |> div [ class "image-grid" ]
 
 
 

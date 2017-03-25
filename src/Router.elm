@@ -37,16 +37,12 @@ initialState initialLocation =
 
 
 type Msg
-    = Navigate String
-    | UrlChange Navigation.Location
+    = UrlChange Navigation.Location
 
 
 update : Msg -> Model -> Model
 update msg model =
     case msg of
-        Navigate hash ->
-            Debug.log "Navigate not yet implemented" model
-
         UrlChange location ->
             { model
                 | history = location :: model.history

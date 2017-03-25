@@ -7,6 +7,16 @@
   margin: 3em auto 8em;
 }
 
+.image-grid-load-indicator {
+  font-size: 23px;
+  color: #666;
+  font-style: italic;
+  text-align: center;
+  margin: 10vh 0;
+
+  animation: fadeIn 0.38s both 0.15s ease-out;
+}
+
 .grid-item {
   display: inline-block;
   width: 100%;
@@ -49,4 +59,10 @@
 
 @media (min-width: 900px) {
   .image-grid { column-count: 3; }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
 }
