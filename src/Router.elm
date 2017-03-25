@@ -8,19 +8,20 @@ import UrlParser exposing (Parser, (</>), s, int, string, map, oneOf, parseHash)
 
 
 type alias Model =
-    { route : Maybe Route
+    { route : Route
     , history : List Navigation.Location
     }
 
 
 type Route
     = Home
-    | LocationSearch String
+    | LocationSearch String ( Float, Float )
+    | NotFound
 
 
 initialState : Navigation.Location -> Model
 initialState initialLocation =
-    Model (parseHash hashToRoute initialLocation) [ initialLocation ]
+    Model (locationToRoute initialLocation) [ initialLocation ]
 
 
 
@@ -28,20 +29,20 @@ initialState initialLocation =
 
 
 type Msg
-    = NavigateTo String
+    = Navigate String
     | UrlChange Navigation.Location
 
 
 update : Msg -> Model -> Model
 update msg model =
     case msg of
-        NavigateTo hash ->
-            Debug.log "NavigateTo not yet implemented" model
+        Navigate hash ->
+            Debug.log "Navigate not yet implemented" model
 
         UrlChange location ->
             { model
                 | history = location :: model.history
-                , route = parseHash hashToRoute location
+                , route = locationToRoute location
             }
 
 
@@ -49,14 +50,51 @@ update msg model =
 -- Utility functions
 
 
+locationToRoute : Navigation.Location -> Route
+locationToRoute location =
+    -- If hash parsing fails fall back to NotFound route.
+    -- By doing it this way we can prevent all components doing pattern
+    -- matching on this component from having to deal with maybe's
+    case (parseHash hashToRoute location) of
+        Just route ->
+            route
+
+        Nothing ->
+            NotFound
+
+
 hashToRoute : Parser (Route -> a) a
 hashToRoute =
     oneOf
         [ map Home UrlParser.top
-        , map LocationSearch (s "location" </> string </> s "@")
+        , map LocationSearch (s "location" </> string </> s "@" </> latLngParser)
         ]
 
 
+latLngParser : Parser (( Float, Float ) -> b) b
+latLngParser =
+    UrlParser.custom "LAT_LNG" <|
+        \segment ->
+            let
+                values =
+                    String.split "," segment
+                        |> List.filterMap
+                            (\strVal ->
+                                case String.toFloat strVal of
+                                    Ok val ->
+                                        Just val
 
--- #/location/lala/@
--- lala@10.53,6,27
+                                    Err error ->
+                                        Nothing
+                            )
+
+                lat =
+                    Maybe.withDefault 0 <| List.head values
+
+                lng =
+                    Maybe.withDefault 0 <| List.head <| List.reverse values
+            in
+                if 2 == List.length values then
+                    Ok ( lat, lng )
+                else
+                    Err "Segment doesn't match format: <float>,<float>"

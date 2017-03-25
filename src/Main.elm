@@ -205,16 +205,14 @@ viewApp model =
 
         route =
             case model.router.route of
-                Nothing ->
-                    "404 Not found"
+                Router.Home ->
+                    "Home"
 
-                Just route ->
-                    case route of
-                        Router.Home ->
-                            "Home"
+                Router.LocationSearch location ( lat, lng ) ->
+                    "Location search: '" ++ location ++ "', (" ++ (toString lat) ++ ", " ++ (toString lng) ++ ")"
 
-                        Router.LocationSearch location ->
-                            "Location search: '" ++ location ++ "'"
+                Router.NotFound ->
+                    "404 not found"
     in
         div [ class "app-container" ]
             [ div []
