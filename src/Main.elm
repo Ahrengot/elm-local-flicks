@@ -5,10 +5,12 @@ import Time
 import Task
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Lazy exposing (lazy)
+import Navigation
 import Components.LocationAutocomplete as Autocomplete
 import UserLocation
 import FlickrImages
-import Html.Lazy exposing (lazy)
+import Router
 
 
 -- Initial model and state
@@ -30,6 +32,7 @@ type alias Model =
     , autocomplete : Autocomplete.Model
     , userLocation : UserLocation.Model
     , flickrImages : FlickrImages.Model
+    , router : Router.Model
     }
 
 
@@ -40,8 +43,8 @@ type alias Location =
     }
 
 
-initialState : Flags -> ( Model, Cmd Msg )
-initialState flags =
+initialState : Flags -> Navigation.Location -> ( Model, Cmd Msg )
+initialState flags location =
     ( { title = flags.title
       , flickrApiKey = flags.flickrApiKey
       , gmapsApiKey = flags.gmapsApiKey
@@ -50,6 +53,7 @@ initialState flags =
       , autocomplete = Autocomplete.initialState
       , userLocation = UserLocation.initialState
       , flickrImages = FlickrImages.initialState
+      , router = Router.initialState location
       }
     , Task.perform UpdateTime Time.now
     )
@@ -69,6 +73,8 @@ type Msg
     | AutocompleteMsg Autocomplete.Msg
     | UserLocationMsg UserLocation.Msg
     | FlickrMsg FlickrImages.Msg
+    | RouterMsg Router.Msg
+    | UrlChange Navigation.Location
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -91,6 +97,12 @@ update msg model =
                   }
                 , Cmd.map FlickrMsg fCmd
                 )
+
+        UrlChange location ->
+            ( { model | router = Router.update (Router.UrlChange location) model.router }, Cmd.none )
+
+        RouterMsg rMsg ->
+            ( { model | router = Router.update rMsg model.router }, Cmd.none )
 
         AutocompleteMsg acMsg ->
             let
@@ -162,7 +174,7 @@ update msg model =
 
 main : Program Flags Model Msg
 main =
-    Html.programWithFlags
+    Navigation.programWithFlags UrlChange
         { init = initialState
         , view = viewApp
         , update = update
@@ -190,12 +202,26 @@ viewApp model =
                             Just errorText ->
                                 viewError errorText
                     )
+
+        route =
+            case model.router.route of
+                Nothing ->
+                    "404 Not found"
+
+                Just route ->
+                    case route of
+                        Router.Home ->
+                            "Home"
+
+                        Router.LocationSearch location ->
+                            "Location search: '" ++ location ++ "'"
     in
         div [ class "app-container" ]
             [ div []
                 [ header [ class "header" ]
                     [ h1 [] [ text model.title ]
                     , p [ class "app-desc" ] [ text "Search for Flickr images posted around The World" ]
+                    , p [ class "app-desc" ] [ text <| "Current route: " ++ route ]
                     , Html.map AutocompleteMsg <| lazy Autocomplete.view model.autocomplete
                     , div [ class "btn-group" ]
                         [ Html.map UserLocationMsg <| lazy UserLocation.viewGetLocationBtn model.userLocation
