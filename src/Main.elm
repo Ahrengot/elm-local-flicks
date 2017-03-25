@@ -6,6 +6,7 @@ import Task
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Lazy exposing (lazy)
+import Http exposing (decodeUri)
 import Navigation
 import Components.LocationAutocomplete as Autocomplete
 import UserLocation
@@ -45,18 +46,28 @@ type alias Location =
 
 initialState : Flags -> Navigation.Location -> ( Model, Cmd Msg )
 initialState flags location =
-    ( { title = flags.title
-      , flickrApiKey = flags.flickrApiKey
-      , gmapsApiKey = flags.gmapsApiKey
-      , now = 0
-      , selectedLocation = Nothing
-      , autocomplete = Autocomplete.initialState
-      , userLocation = UserLocation.initialState
-      , flickrImages = FlickrImages.initialState
-      , router = Router.initialState location
-      }
-    , Task.perform UpdateTime Time.now
-    )
+    let
+        init =
+            { title = flags.title
+            , flickrApiKey = flags.flickrApiKey
+            , gmapsApiKey = flags.gmapsApiKey
+            , now = 0
+            , selectedLocation = Nothing
+            , autocomplete = Autocomplete.initialState
+            , userLocation = UserLocation.initialState
+            , flickrImages = FlickrImages.initialState
+            , router = Router.initialState location
+            }
+
+        -- Make any model/cmd modifications we need to
+        -- based on initial url location
+        ( model, cmd ) =
+            modelFromUrlLocation location init
+
+        initCmd =
+            Task.perform UpdateTime Time.now
+    in
+        ( model, Cmd.batch [ cmd, initCmd ] )
 
 
 
@@ -69,11 +80,9 @@ port changeBodyBg : String -> Cmd msg
 type Msg
     = UpdateTime Float
     | ClearLocation
-    | SetLocation Location
     | AutocompleteMsg Autocomplete.Msg
     | UserLocationMsg UserLocation.Msg
     | FlickrMsg FlickrImages.Msg
-    | RouterMsg Router.Msg
     | UrlChange Navigation.Location
 
 
@@ -86,23 +95,8 @@ update msg model =
         ClearLocation ->
             ( { model | selectedLocation = Nothing }, Cmd.none )
 
-        SetLocation location ->
-            let
-                ( newFlickrImages, fCmd ) =
-                    FlickrImages.update (FlickrImages.LoadImages location model.flickrApiKey) model.flickrImages
-            in
-                ( { model
-                    | selectedLocation = Just location
-                    , flickrImages = newFlickrImages
-                  }
-                , Cmd.map FlickrMsg fCmd
-                )
-
-        UrlChange location ->
-            ( { model | router = Router.update (Router.UrlChange location) model.router }, Cmd.none )
-
-        RouterMsg rMsg ->
-            ( { model | router = Router.update rMsg model.router }, Cmd.none )
+        UrlChange urlLocation ->
+            modelFromUrlLocation urlLocation model
 
         AutocompleteMsg acMsg ->
             let
@@ -112,7 +106,7 @@ update msg model =
                 thisCmd =
                     case acMsg of
                         Autocomplete.AfterSelectItem location ->
-                            Task.perform SetLocation <| Task.succeed <| location
+                            locationUrlCmd model location
 
                         _ ->
                             Cmd.none
@@ -133,7 +127,7 @@ update msg model =
                             Task.perform (\_ -> ClearLocation) <| Task.succeed Nothing
 
                         UserLocation.ReceivedLocation loc ->
-                            Task.perform SetLocation <| Task.succeed <| Location "My current location" loc.latitude loc.longitude
+                            locationUrlCmd model <| Location "My current location" loc.latitude loc.longitude
 
                         _ ->
                             Cmd.none
@@ -169,6 +163,54 @@ update msg model =
 
 
 
+-- Utility functions
+
+
+locationUrlCmd : Model -> Location -> Cmd Msg
+locationUrlCmd model placeLocation =
+    case List.head model.router.history of
+        Just urlLocation ->
+            Navigation.newUrl <| Router.locationToHash placeLocation
+
+        Nothing ->
+            Cmd.none
+
+
+modelFromUrlLocation : Navigation.Location -> Model -> ( Model, Cmd Msg )
+modelFromUrlLocation urlLocation model =
+    let
+        newRouter =
+            Router.update (Router.UrlChange urlLocation) model.router
+
+        ( newSelectedLocation, newFlickrImages, newAutocomplete, cmd ) =
+            case newRouter.route of
+                Router.LocationSearch locationName ( lat, lng ) ->
+                    let
+                        location =
+                            Location locationName lat lng
+
+                        ( newFlickrImages, fCmd ) =
+                            FlickrImages.update (FlickrImages.LoadImages location model.flickrApiKey) model.flickrImages
+
+                        ( newAutocomplete, _ ) =
+                            Autocomplete.update (Autocomplete.SetDefaultQuery <| Maybe.withDefault "" <| decodeUri locationName) model.autocomplete
+                    in
+                        ( Just location, newFlickrImages, newAutocomplete, Cmd.map FlickrMsg fCmd )
+
+                _ ->
+                    ( Nothing, model.flickrImages, model.autocomplete, Cmd.none )
+    in
+        ( { model
+            | router = newRouter
+            , selectedLocation = newSelectedLocation
+            , flickrImages = newFlickrImages
+            , autocomplete = newAutocomplete
+          }
+        , cmd
+        )
+
+
+
 -- Views
 
 
@@ -191,7 +233,7 @@ viewApp model =
             else
                 text ""
 
-        errors =
+        errorView =
             [ model.userLocation.loadError, model.flickrImages.loadError ]
                 |> List.map
                     (\maybeErr ->
@@ -202,31 +244,47 @@ viewApp model =
                             Just errorText ->
                                 viewError errorText
                     )
+                |> div [ class "errors" ]
 
-        route =
+        headerContents =
             case model.router.route of
-                Router.Home ->
-                    "Home"
-
-                Router.LocationSearch location ( lat, lng ) ->
-                    "Location search: '" ++ location ++ "', (" ++ (toString lat) ++ ", " ++ (toString lng) ++ ")"
-
                 Router.NotFound ->
-                    "404 not found"
-    in
-        div [ class "app-container" ]
-            [ div []
-                [ header [ class "header" ]
-                    [ h1 [] [ text model.title ]
-                    , p [ class "app-desc" ] [ text "Search for Flickr images posted around The World" ]
-                    , p [ class "app-desc" ] [ text <| "Current route: " ++ route ]
+                    []
+
+                _ ->
+                    [ p [ class "app-desc" ] [ text "Search for Flickr images posted around The World" ]
                     , Html.map AutocompleteMsg <| lazy Autocomplete.view model.autocomplete
                     , div [ class "btn-group" ]
                         [ Html.map UserLocationMsg <| lazy UserLocation.viewGetLocationBtn model.userLocation
                         ]
                     ]
-                , div [ class "errors" ] errors
-                , Html.map FlickrMsg <| lazy viewImageGrid model
+
+        viewContents =
+            case model.router.route of
+                Router.Home ->
+                    [ errorView
+                    ]
+
+                Router.LocationSearch locationName ( lat, lng ) ->
+                    [ errorView
+                    , Html.map FlickrMsg <| lazy viewImageGrid model
+                    ]
+
+                Router.NotFound ->
+                    [ p [ class "app-desc text-center" ]
+                        [ text "Route not found. "
+                        , a [ href "./" ] [ text "Go to home page." ]
+                        ]
+                    ]
+    in
+        div [ class "app-container" ]
+            [ div []
+                [ header [ class "header" ]
+                    [ h1 []
+                        [ text model.title ]
+                    , div [] headerContents
+                    ]
+                , div [] viewContents
                 ]
             ]
 

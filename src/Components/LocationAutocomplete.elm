@@ -54,6 +54,7 @@ initialState =
 
 type Msg
     = UpdateQuery String
+    | SetDefaultQuery String
     | DebouncerMsg (Debounce.Msg String)
     | GmapsSuggestionsResponse (Result Http.Error (List Location))
     | UpdateComponent Autocomplete.Msg
@@ -91,6 +92,9 @@ update msg model =
                     }
             in
                 ( newModel, Cmd.map DebouncerMsg cmd )
+
+        SetDefaultQuery query ->
+            ( { model | query = query }, Cmd.none )
 
         DebouncerMsg dMsg ->
             let

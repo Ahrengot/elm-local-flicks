@@ -1,6 +1,7 @@
 module Router exposing (..)
 
 import Navigation
+import Http exposing (encodeUri)
 import UrlParser exposing (Parser, (</>), s, int, string, map, oneOf, parseHash)
 
 
@@ -10,6 +11,13 @@ import UrlParser exposing (Parser, (</>), s, int, string, map, oneOf, parseHash)
 type alias Model =
     { route : Route
     , history : List Navigation.Location
+    }
+
+
+type alias Location =
+    { name : String
+    , lat : Float
+    , lng : Float
     }
 
 
@@ -48,6 +56,11 @@ update msg model =
 
 
 -- Utility functions
+
+
+locationToHash : Location -> String
+locationToHash loc =
+    "#/location/" ++ (encodeUri loc.name) ++ "/@/" ++ (toString loc.lat) ++ "," ++ (toString loc.lng)
 
 
 locationToRoute : Navigation.Location -> Route
