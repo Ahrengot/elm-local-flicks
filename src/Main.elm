@@ -20,14 +20,11 @@ import Router
 type alias Flags =
     { title : String
     , flickrApiKey : String
-    , gmapsApiKey : String
     }
 
 
 type alias Model =
     { title : String
-    , flickrApiKey : String
-    , gmapsApiKey : String
     , now : Float
     , selectedLocation : Maybe Location
     , autocomplete : Autocomplete.Model
@@ -49,13 +46,11 @@ initialState flags location =
     let
         init =
             { title = flags.title
-            , flickrApiKey = flags.flickrApiKey
-            , gmapsApiKey = flags.gmapsApiKey
             , now = 0
             , selectedLocation = Nothing
             , autocomplete = Autocomplete.initialState
             , userLocation = UserLocation.initialState
-            , flickrImages = FlickrImages.initialState
+            , flickrImages = FlickrImages.initialState flags.flickrApiKey
             , router = Router.initialState location
             }
 
@@ -200,7 +195,7 @@ modelFromUrlLocation urlLocation model =
                             Location locationName lat lng
 
                         ( newFlickrImages, fCmd ) =
-                            FlickrImages.update (FlickrImages.LoadImages location model.flickrApiKey) model.flickrImages
+                            FlickrImages.update (FlickrImages.LoadImages location) model.flickrImages
 
                         ( newAutocomplete, _ ) =
                             Autocomplete.update (Autocomplete.SetDefaultQuery <| Maybe.withDefault "unknown location" <| decodeUri locationName) model.autocomplete
@@ -237,12 +232,6 @@ main =
 viewApp : Model -> Html Msg
 viewApp model =
     let
-        resultsText =
-            if (List.length model.flickrImages.results) > 0 then
-                p [ class "results-description" ] [ text ("Found " ++ (toString (List.length model.flickrImages.results)) ++ " images.") ]
-            else
-                text ""
-
         errorView =
             [ model.userLocation.loadError, model.flickrImages.loadError ]
                 |> List.map

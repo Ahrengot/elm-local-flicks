@@ -14,7 +14,8 @@ import Util exposing (parseHttpError, decodeDate, distanceInKm)
 
 
 type alias Model =
-    { results : List Image
+    { apiKey : String
+    , results : List Image
     , loading : Bool
     , loadError : Maybe String
     }
@@ -40,9 +41,10 @@ type alias Location =
     }
 
 
-initialState : Model
-initialState =
-    { results = []
+initialState : String -> Model
+initialState apiKey =
+    { apiKey = apiKey
+    , results = []
     , loading = False
     , loadError = Nothing
     }
@@ -53,15 +55,15 @@ initialState =
 
 
 type Msg
-    = LoadImages Location String
+    = LoadImages Location
     | ImageSearchResponse (Result Http.Error (List Image))
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        LoadImages location apiKey ->
-            ( { model | loading = True, results = [] }, fetchImages location apiKey )
+        LoadImages location ->
+            ( { model | loading = True, results = [] }, fetchImages location model.apiKey )
 
         ImageSearchResponse response ->
             let
