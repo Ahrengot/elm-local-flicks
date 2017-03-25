@@ -64,6 +64,8 @@ port changeBodyBg : String -> Cmd msg
 
 type Msg
     = UpdateTime Float
+    | ClearLocation
+    | SetLocation Location
     | AutocompleteMsg Autocomplete.Msg
     | UserLocationMsg UserLocation.Msg
     | FlickrMsg FlickrImages.Msg
@@ -75,87 +77,83 @@ update msg model =
         UpdateTime now ->
             ( { model | now = now }, Cmd.none )
 
+        ClearLocation ->
+            ( { model | selectedLocation = Nothing }, Cmd.none )
+
+        SetLocation location ->
+            let
+                ( newFlickrImages, fCmd ) =
+                    FlickrImages.update (FlickrImages.LoadImages location model.flickrApiKey) model.flickrImages
+            in
+                ( { model
+                    | selectedLocation = Just location
+                    , flickrImages = newFlickrImages
+                  }
+                , Cmd.map FlickrMsg fCmd
+                )
+
         AutocompleteMsg acMsg ->
             let
                 ( newAutocomplete, acCmd ) =
                     Autocomplete.update acMsg model.autocomplete
 
-                ( newModel, thisCmd ) =
+                thisCmd =
                     case acMsg of
                         Autocomplete.AfterSelectItem location ->
-                            let
-                                ( newFlickrImages, fCmd ) =
-                                    FlickrImages.update (FlickrImages.LoadImages location model.flickrApiKey) model.flickrImages
-                            in
-                                ( { model
-                                    | autocomplete = newAutocomplete
-                                    , selectedLocation = Just location
-                                    , flickrImages = newFlickrImages
-                                  }
-                                , Cmd.map FlickrMsg fCmd
-                                )
+                            Task.perform SetLocation <| Task.succeed <| location
 
                         _ ->
-                            ( { model | autocomplete = newAutocomplete }, Cmd.none )
+                            Cmd.none
 
-                cmd =
-                    Cmd.map AutocompleteMsg acCmd
+                batchedCmd =
+                    Cmd.batch [ thisCmd, Cmd.map AutocompleteMsg acCmd ]
             in
-                ( newModel, Cmd.batch [ cmd, thisCmd ] )
+                ( { model | autocomplete = newAutocomplete }, batchedCmd )
 
         UserLocationMsg locMsg ->
             let
                 ( newUserLocation, locCmd ) =
                     UserLocation.update locMsg model.userLocation
 
-                location =
+                thisCmd =
                     case locMsg of
+                        UserLocation.RequestLocation ->
+                            Task.perform (\_ -> ClearLocation) <| Task.succeed Nothing
+
                         UserLocation.ReceivedLocation loc ->
-                            Just <| Location "My current location" loc.latitude loc.longitude
+                            Task.perform SetLocation <| Task.succeed <| Location "My current location" loc.latitude loc.longitude
 
                         _ ->
-                            Nothing
+                            Cmd.none
 
-                ( newModel, cmd ) =
-                    case location of
-                        Nothing ->
-                            ( { model | userLocation = newUserLocation }, Cmd.map UserLocationMsg locCmd )
-
-                        Just location ->
-                            let
-                                ( newFlickrImages, fCmd ) =
-                                    FlickrImages.update (FlickrImages.LoadImages location model.flickrApiKey) model.flickrImages
-                            in
-                                ( { model
-                                    | userLocation = newUserLocation
-                                    , flickrImages = newFlickrImages
-                                  }
-                                , Cmd.map FlickrMsg fCmd
-                                )
+                batchedCmd =
+                    Cmd.batch [ thisCmd, Cmd.map UserLocationMsg locCmd ]
             in
-                ( newModel, cmd )
+                ( { model | userLocation = newUserLocation }, batchedCmd )
 
         FlickrMsg fMsg ->
             let
                 ( newFlickrImages, fCmd ) =
                     FlickrImages.update fMsg model.flickrImages
+
+                cmd =
+                    case fMsg of
+                        -- Change body bg if we have image results
+                        FlickrImages.ImageSearchResponse res ->
+                            case res of
+                                Ok results ->
+                                    changeBodyBg "#151515"
+
+                                Err error ->
+                                    changeBodyBg ""
+
+                        _ ->
+                            Cmd.none
+
+                batchedCmd =
+                    Cmd.batch [ cmd, Cmd.map FlickrMsg fCmd ]
             in
-                ( { model
-                    | flickrImages = newFlickrImages
-                  }
-                , case fMsg of
-                    -- Change body bg if we have image results
-                    FlickrImages.ImageSearchResponse res ->
-                        case res of
-                            Ok results ->
-                                changeBodyBg "#151515"
-
-                            Err error ->
-                                changeBodyBg ""
-
-                    _ ->
-                        Cmd.none
-                )
+                ( { model | flickrImages = newFlickrImages }, batchedCmd )
 
 
 
