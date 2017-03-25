@@ -9,7 +9,7 @@ import Html.Lazy exposing (lazy)
 import Http exposing (decodeUri)
 import Navigation
 import Components.LocationAutocomplete as Autocomplete
-import UserLocation
+import Components.GetLocationBtn as GetLocationBtn
 import FlickrImages
 import Router
 
@@ -28,7 +28,7 @@ type alias Model =
     , now : Float
     , selectedLocation : Maybe Location
     , autocomplete : Autocomplete.Model
-    , userLocation : UserLocation.Model
+    , userLocation : GetLocationBtn.Model
     , flickrImages : FlickrImages.Model
     , router : Router.Model
     }
@@ -49,7 +49,7 @@ initialState flags location =
             , now = 0
             , selectedLocation = Nothing
             , autocomplete = Autocomplete.initialState
-            , userLocation = UserLocation.initialState
+            , userLocation = GetLocationBtn.initialState
             , flickrImages = FlickrImages.initialState flags.flickrApiKey
             , router = Router.initialState location
             }
@@ -86,7 +86,7 @@ type Msg
     = UpdateTime Float
     | ClearLocation
     | AutocompleteMsg Autocomplete.Msg
-    | UserLocationMsg UserLocation.Msg
+    | UserLocationMsg GetLocationBtn.Msg
     | FlickrMsg FlickrImages.Msg
     | UrlChange Navigation.Location
 
@@ -124,14 +124,14 @@ update msg model =
         UserLocationMsg locMsg ->
             let
                 ( newUserLocation, locCmd ) =
-                    UserLocation.update locMsg model.userLocation
+                    GetLocationBtn.update locMsg model.userLocation
 
                 thisCmd =
                     case locMsg of
-                        UserLocation.RequestLocation ->
+                        GetLocationBtn.RequestLocation ->
                             Task.perform (\_ -> ClearLocation) <| Task.succeed Nothing
 
-                        UserLocation.ReceivedLocation loc ->
+                        GetLocationBtn.ReceivedLocation loc ->
                             locationUrlCmd model <| Location "My current location" loc.latitude loc.longitude
 
                         _ ->
@@ -251,10 +251,10 @@ viewApp model =
                     []
 
                 _ ->
-                    [ p [ class "app-desc" ] [ text "Search for Flickr images posted around The World" ]
-                    , Html.map AutocompleteMsg <| lazy Autocomplete.view model.autocomplete
-                    , div [ class "btn-group" ]
-                        [ Html.map UserLocationMsg <| lazy UserLocation.viewGetLocationBtn model.userLocation
+                    [ p [ class "app-desc" ] [ text "Search for Flickr images around The World" ]
+                    , div [ class "autocomplete-input-wrap" ]
+                        [ Html.map AutocompleteMsg <| lazy Autocomplete.view model.autocomplete
+                        , Html.map UserLocationMsg <| lazy GetLocationBtn.viewGetLocationBtn model.userLocation
                         ]
                     ]
 

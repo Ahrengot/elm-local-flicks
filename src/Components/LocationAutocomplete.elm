@@ -344,7 +344,7 @@ handleInputKeyDown =
 
 view : Model -> Html Msg
 view model =
-    div [ class "autocomplete autocomplete-location" ]
+    div [ class "autocomplete" ]
         [ input
             [ type_ "search"
             , class "autocomplete-input"

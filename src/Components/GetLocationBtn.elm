@@ -1,4 +1,4 @@
-module UserLocation exposing (..)
+module Components.GetLocationBtn exposing (..)
 
 import Geolocation exposing (Error, Location)
 import Task
