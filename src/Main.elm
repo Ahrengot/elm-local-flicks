@@ -84,7 +84,6 @@ port changeBodyBg : String -> Cmd msg
 
 type Msg
     = UpdateTime Float
-    | ClearLocation
     | AutocompleteMsg Autocomplete.Msg
     | UserLocationMsg GetLocationBtn.Msg
     | FlickrMsg FlickrImages.Msg
@@ -96,9 +95,6 @@ update msg model =
     case msg of
         UpdateTime now ->
             ( { model | now = now }, Cmd.none )
-
-        ClearLocation ->
-            ( { model | selectedLocation = Nothing }, Cmd.none )
 
         UrlChange urlLocation ->
             modelFromUrlLocation urlLocation model
@@ -126,21 +122,24 @@ update msg model =
                 ( newUserLocation, locCmd ) =
                     GetLocationBtn.update locMsg model.userLocation
 
-                thisCmd =
+                ( newAutocomplete, thisCmd ) =
                     case locMsg of
                         GetLocationBtn.RequestLocation ->
-                            Task.perform (\_ -> ClearLocation) <| Task.succeed Nothing
+                            ( Tuple.first <|
+                                Autocomplete.update (Autocomplete.SetDefaultQuery "Loading your location...") model.autocomplete
+                            , Cmd.none
+                            )
 
                         GetLocationBtn.ReceivedLocation loc ->
-                            locationUrlCmd model <| Location "My current location" loc.latitude loc.longitude
+                            ( model.autocomplete, locationUrlCmd model <| Location "My current location" loc.latitude loc.longitude )
 
                         _ ->
-                            Cmd.none
+                            ( model.autocomplete, Cmd.none )
 
                 batchedCmd =
                     Cmd.batch [ thisCmd, Cmd.map UserLocationMsg locCmd ]
             in
-                ( { model | userLocation = newUserLocation }, batchedCmd )
+                ( { model | userLocation = newUserLocation, autocomplete = newAutocomplete }, batchedCmd )
 
         FlickrMsg fMsg ->
             let
@@ -202,6 +201,18 @@ modelFromUrlLocation urlLocation model =
                     in
                         ( Just location, newFlickrImages, newAutocomplete, Cmd.map FlickrMsg fCmd )
 
+                Router.Home ->
+                    let
+                        ( newAutocomplete, _ ) =
+                            Autocomplete.update Autocomplete.HandleEscape model.autocomplete
+                                |> Tuple.first
+                                |> Autocomplete.update (Autocomplete.SetDefaultQuery "")
+
+                        ( newFlickrImages, _ ) =
+                            FlickrImages.update FlickrImages.Reset model.flickrImages
+                    in
+                        ( Nothing, newFlickrImages, newAutocomplete, changeBodyBg "" )
+
                 _ ->
                     ( Nothing, model.flickrImages, model.autocomplete, Cmd.none )
     in
@@ -251,10 +262,24 @@ viewApp model =
                     []
 
                 _ ->
-                    [ p [ class "app-desc" ] [ text "Search for Flickr images around The World" ]
-                    , div [ class "autocomplete-input-wrap" ]
+                    [ p [ class "app-desc" ] [ text "Search for Flickr images from around The World" ]
+                    , div [ class "autocomplete-wrap" ]
                         [ Html.map AutocompleteMsg <| lazy Autocomplete.view model.autocomplete
                         , Html.map UserLocationMsg <| lazy GetLocationBtn.viewGetLocationBtn model.userLocation
+                        , a
+                            [ href "#"
+                            , class "autocomplete-input-reset"
+                            , title "Clear search"
+                            , style
+                                [ ( "display"
+                                  , if model.autocomplete.query == "" then
+                                        "none"
+                                    else
+                                        ""
+                                  )
+                                ]
+                            ]
+                            [ text "×" ]
                         ]
                     ]
 

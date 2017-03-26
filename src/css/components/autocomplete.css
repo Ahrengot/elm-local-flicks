@@ -1,20 +1,59 @@
-.autocomplete {
+.autocomplete-wrap {
   position: relative;
   max-width: 550px;
   margin: auto;
   text-align: left;
 }
 
+.get-location-btn, .autocomplete-input-reset {
+  position: absolute;
+
+  top: 8px;
+
+  width: 22px;
+  height: 24px;
+
+  border: none;
+  opacity: 0.5;
+  cursor: pointer;
+}
+
+.get-location-btn:not(.loading):hover,
+.get-location-btn:focus,
+.autocomplete-input-reset:hover,
+.autocomplete-input-reset:focus {
+  opacity: 1;
+  outline: none;
+  text-decoration: none;
+}
+
+.get-location-btn {
+  left: 7px;
+  background: svg-load(map-marker.svg, fill=#444) no-repeat center;
+  background-size: contain;
+}
+
+.autocomplete-input-reset {
+  right: 7px;
+  color: #444;
+  font-size: 22px;
+  line-height: 1;
+}
+
+
+.get-location-btn.loading {
+  animation: hoverBounce 3s both infinite ease-in-out;
+}
+
 .autocomplete-input {
   display: block;
   border: thin solid #ddd;
-  padding: 0.5em 0.75em;
+  padding: 0.5em 0.75em 0.5em 2em;
   width: 100%;
 }
 
 .autocomplete-input:focus {
   outline: none;
-  /*border-color: #31b0d5;*/
 }
 
 .autocomplete-load-indicator, .autocomplete-menu {
@@ -83,5 +122,15 @@
   0% {
     opacity: 0;
     transform: translateY(-10px);
+  }
+}
+
+@keyframes hoverBounce {
+  25%, 70% {
+    transform: translateY(-10%);
+  }
+
+  50%, 100% {
+    transform: translateY(10%);
   }
 }

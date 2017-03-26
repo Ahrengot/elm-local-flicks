@@ -60,6 +60,7 @@ update msg model =
             ( { model
                 | loading = True
                 , loadError = Nothing
+                , location = Nothing
               }
             , Task.attempt onLocationResponse Geolocation.now
             )
@@ -87,18 +88,19 @@ update msg model =
 
 viewGetLocationBtn : Model -> Html Msg
 viewGetLocationBtn model =
-    let
-        btnText =
+    button
+        [ class <|
             if model.loading then
-                "Loading..."
+                "get-location-btn loading"
+            else
+                "get-location-btn"
+        , type_ "button"
+        , onClick RequestLocation
+        , disabled model.loading
+        , title <|
+            if model.loading then
+                "Loading location..."
             else
                 "Use my current location"
-    in
-        button
-            [ class "btn btn-primary"
-            , type_ "button"
-            , onClick RequestLocation
-            , disabled model.loading
-            ]
-            [ text btnText
-            ]
+        ]
+        []

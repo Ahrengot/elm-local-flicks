@@ -56,6 +56,7 @@ initialState apiKey =
 
 type Msg
     = LoadImages Location
+    | Reset
     | ImageSearchResponse (Result Http.Error (List Image))
 
 
@@ -64,6 +65,9 @@ update msg model =
     case msg of
         LoadImages location ->
             ( { model | loading = True, results = [] }, fetchImages location model.apiKey )
+
+        Reset ->
+            ( initialState model.apiKey, Cmd.none )
 
         ImageSearchResponse response ->
             let
