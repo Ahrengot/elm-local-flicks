@@ -40,6 +40,11 @@
   font-size: 0.75em;
 }
 
+.img-title {
+  font-weight: 300;
+  -webkit-font-smoothing: antialiased;
+}
+
 .img-date, .img-distance {
   display: flex;
   align-items: center;

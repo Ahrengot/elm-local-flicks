@@ -71,7 +71,7 @@ suggestions =
     [ "#/location/Nuuk/@/64.18140989999999,-51.694138"
     , "#/location/Sofia/@/42.6977082,23.3218675"
     , "#/location/Dubai/@/25.2048493,55.2707828"
-    , "#/location/Manhattan/@/40.7830603,-73.9712488"
+    , "#/location/Brooklyn/@/40.6781784,-73.9441579"
     , "#/location/S%C3%A3o%20Paulo/@/-23.5505199,-46.63330939999999"
     ]
 
@@ -263,7 +263,7 @@ viewApp model =
                     []
 
                 _ ->
-                    [ p [ class "app-desc" ] [ text "Search for Flickr images from around The World" ]
+                    [ p [ class "app-desc" ] [ text "Flickr images from around The World" ]
                     , div [ class "autocomplete-wrap" ]
                         [ Html.map AutocompleteMsg <| lazy Autocomplete.view model.autocomplete
                         , Html.map UserLocationMsg <| lazy GetLocationBtn.viewGetLocationBtn model.userLocation

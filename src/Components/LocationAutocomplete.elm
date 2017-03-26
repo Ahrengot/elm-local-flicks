@@ -352,7 +352,7 @@ view model =
             , onInput UpdateQuery
             , onWithOptions "keydown" { preventDefault = True, stopPropagation = False } handleInputKeyDown
             , value model.query
-            , placeholder "Ie. Manhattan, New York"
+            , placeholder "Enter a location like 'New York'"
             ]
             []
         , if model.showSuggestions then

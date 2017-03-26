@@ -180,7 +180,8 @@ viewImage userLocation now imgData =
                     [ img [ Html.Attributes.src <| srcBase ++ "_z.jpg" ] []
                     ]
                 , div [ class "img-meta" ]
-                    [ div [ class "img-date" ]
+                    [ h3 [ class "h5 img-title" ] [ text imgData.title ]
+                    , div [ class "img-date" ]
                         [ span [ class "icon icon-date" ] []
                         , text <| (TimeAgo.inWords (Date.fromTime now) imgData.date) ++ " ago"
                         ]
