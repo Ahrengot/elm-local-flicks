@@ -7,6 +7,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Lazy exposing (lazy)
 import Http exposing (decodeUri)
+import Regex
 import Navigation
 import Components.LocationAutocomplete as Autocomplete
 import Components.GetLocationBtn as GetLocationBtn
@@ -71,7 +72,7 @@ suggestions =
     , "#/location/Sofia/@/42.6977082,23.3218675"
     , "#/location/Dubai/@/25.2048493,55.2707828"
     , "#/location/Manhattan/@/40.7830603,-73.9712488"
-    , "#/location/Kabul/@/34.5553494,69.207486"
+    , "#/location/S%C3%A3o%20Paulo/@/-23.5505199,-46.63330939999999"
     ]
 
 
@@ -287,6 +288,7 @@ viewApp model =
             case model.router.route of
                 Router.Home ->
                     [ errorView
+                    , div [ class "location-suggestions" ] <| viewSuggestionLinks suggestions
                     ]
 
                 Router.LocationSearch locationName ( lat, lng ) ->
@@ -313,6 +315,43 @@ viewApp model =
             ]
 
 
+viewSuggestionLinks : List String -> List (Html Msg)
+viewSuggestionLinks linkList =
+    let
+        links =
+            linkList
+                |> List.map
+                    (\link ->
+                        let
+                            firstSubMatch : String -> List (Maybe String) -> String
+                            firstSubMatch fallback submatches =
+                                case List.head submatches of
+                                    Nothing ->
+                                        fallback
+
+                                    Just maybeString ->
+                                        Maybe.withDefault fallback maybeString
+
+                            firstMatch =
+                                List.head <| Regex.find (Regex.AtMost 1) (Regex.regex "^#/location/(.[^/]+)") link
+
+                            linkLabel =
+                                case firstMatch of
+                                    Nothing ->
+                                        link
+
+                                    Just match ->
+                                        firstSubMatch link match.submatches
+                        in
+                            li [] [ a [ href link ] [ text <| Maybe.withDefault link <| decodeUri linkLabel ] ]
+                    )
+    in
+        if not <| List.isEmpty links then
+            (text "Or try one of these: ") :: [ ul [] links ]
+        else
+            []
+
+
 viewError : String -> Html Msg
 viewError msg =
     div [ class "alert alert-danger mt-3 mb-3" ]
@@ -323,6 +362,8 @@ viewImageGrid : Model -> Html FlickrImages.Msg
 viewImageGrid model =
     if model.flickrImages.loading then
         div [ class "image-grid-load-indicator" ] [ text "Loading images..." ]
+    else if model.flickrImages.loading == False && List.isEmpty model.flickrImages.results then
+        div [ class "image-grid-load-indicator" ] [ text "No images found at this location. Try somewhere else.." ]
     else
         model.flickrImages.results
             |> List.map (FlickrImages.viewImage model.selectedLocation model.now)

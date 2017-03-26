@@ -32,6 +32,7 @@ initialState =
 type Msg
     = RequestLocation
     | ReceivedLocation Location
+    | ReceivedReverseGeoLookup String
     | LocationFailed String
 
 
@@ -68,10 +69,12 @@ update msg model =
         ReceivedLocation loc ->
             ( { model
                 | location = Just loc
-                , loading = False
               }
             , Cmd.none
             )
+
+        ReceivedReverseGeoLookup address ->
+            ( { model | loading = False }, Cmd.none )
 
         LocationFailed err ->
             ( { model
@@ -83,6 +86,7 @@ update msg model =
 
 
 
+-- Reverse geo lookup
 -- Views
 
 

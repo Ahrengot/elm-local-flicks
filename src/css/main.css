@@ -1,6 +1,7 @@
 @import "components/header";
 @import "components/autocomplete";
 @import "components/image-grid";
+@import "components/location-suggestions";
 @import "components/icon";
 
 body {
