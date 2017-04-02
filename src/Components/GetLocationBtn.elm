@@ -2,9 +2,12 @@ module Components.GetLocationBtn exposing (..)
 
 import Geolocation exposing (Error, Location)
 import Task
+import Http
+import Json.Decode as Decode exposing (field, index)
 import Html exposing (Html, button, text)
 import Html.Events exposing (onClick)
 import Html.Attributes exposing (..)
+import Util exposing (parseHttpError)
 
 
 -- Model and init state
@@ -32,7 +35,7 @@ initialState =
 type Msg
     = RequestLocation
     | ReceivedLocation Location
-    | ReceivedReverseGeoLookup String
+    | ReceivedReverseGeoLookup (Result Http.Error String)
     | LocationFailed String
 
 
@@ -70,11 +73,25 @@ update msg model =
             ( { model
                 | location = Just loc
               }
-            , Cmd.none
+            , doReverseGeoLookup loc
             )
 
-        ReceivedReverseGeoLookup address ->
-            ( { model | loading = False }, Cmd.none )
+        ReceivedReverseGeoLookup response ->
+            let
+                newModel =
+                    case response of
+                        Ok results ->
+                            { model
+                                | loading = False
+                            }
+
+                        Err error ->
+                            { model
+                                | loadError = Just (parseHttpError error)
+                                , loading = False
+                            }
+            in
+                ( newModel, Cmd.none )
 
         LocationFailed err ->
             ( { model
@@ -88,6 +105,22 @@ update msg model =
 
 -- Reverse geo lookup
 -- Views
+
+
+doReverseGeoLookup : Location -> Cmd Msg
+doReverseGeoLookup location =
+    let
+        url =
+            "https://maps.googleapis.com/maps/api/geocode/json?latlng="
+                ++ (String.join "," [ toString location.latitude, toString location.longitude ])
+    in
+        Http.get url geoLocationDecoder
+            |> Http.send ReceivedReverseGeoLookup
+
+
+geoLocationDecoder : Decode.Decoder String
+geoLocationDecoder =
+    field "results" <| index 0 (field "formatted_address" Decode.string)
 
 
 viewGetLocationBtn : Model -> Html Msg

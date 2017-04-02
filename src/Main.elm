@@ -131,8 +131,18 @@ update msg model =
                             , Cmd.none
                             )
 
-                        GetLocationBtn.ReceivedLocation loc ->
-                            ( model.autocomplete, locationUrlCmd model <| Location "My current location" loc.latitude loc.longitude )
+                        GetLocationBtn.ReceivedReverseGeoLookup response ->
+                            case response of
+                                Ok address ->
+                                    case newUserLocation.location of
+                                        Just loc ->
+                                            ( model.autocomplete, locationUrlCmd model <| Location address loc.latitude loc.longitude )
+
+                                        Nothing ->
+                                            ( model.autocomplete, Cmd.none )
+
+                                Err _ ->
+                                    ( model.autocomplete, Cmd.none )
 
                         _ ->
                             ( model.autocomplete, Cmd.none )

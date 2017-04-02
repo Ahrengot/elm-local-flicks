@@ -82,6 +82,8 @@ hashToRoute =
 
 latLngParser : Parser (( Float, Float ) -> b) b
 latLngParser =
+    -- Returns a custom parser that takes a string like "10.5839,23.848397" and returns
+    -- a touple like (10.5839, 23.848397)
     UrlParser.custom "LAT_LNG" <|
         \segment ->
             let
