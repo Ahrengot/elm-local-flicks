@@ -58,6 +58,10 @@
   height: 1.3em;
 }
 
+.img-desc {
+  margin-bottom: 0.3em;
+}
+
 @media (min-width: 600px) {
   .image-grid { column-count: 2; }
 }

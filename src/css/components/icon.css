@@ -13,3 +13,7 @@
 .icon-location {
   background-image: svg-load(map-marker.svg, fill=#999);
 }
+
+.icon-user {
+  background-image: svg-load(user.svg, fill=#999);
+}

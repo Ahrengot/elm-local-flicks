@@ -4,7 +4,7 @@ import Date
 import Date.Distance as TimeAgo
 import Http
 import Html exposing (..)
-import Html.Attributes exposing (class, href)
+import Html.Attributes exposing (class, href, target)
 import Json.Decode as Decode
 import Json.Decode.Pipeline exposing (decode, required, requiredAt, optional)
 import Util exposing (parseHttpError, decodeDate, distanceInKm)
@@ -24,6 +24,8 @@ type alias Model =
 type alias Image =
     { id : String
     , owner : String
+    , ownerName : String
+    , description : String
     , secret : String
     , server : String
     , farm : Int
@@ -117,7 +119,7 @@ fetchImages location apiKey =
                 , ( "per_page", "25" )
                 , ( "lat", toString location.lat )
                 , ( "lon", toString location.lng )
-                , ( "extras", "date_upload,geo" )
+                , ( "extras", "date_upload,geo,owner_name,description" )
                 , ( "sort", "date-posted-dsc" )
                 , ( "format", "json" )
                 , ( "nojsoncallback", "1" )
@@ -138,6 +140,8 @@ imageDecoder =
     decode Image
         |> required "id" Decode.string
         |> required "owner" Decode.string
+        |> required "ownername" Decode.string
+        |> requiredAt [ "description", "_content" ] Decode.string
         |> required "secret" Decode.string
         |> required "server" Decode.string
         |> required "farm" Decode.int
@@ -149,6 +153,14 @@ imageDecoder =
 
 
 -- Views
+
+
+viewAuthor : String -> String -> Html Msg
+viewAuthor name userId =
+    div [ class "img-distance" ]
+        [ span [ class "icon icon-user" ] []
+        , a [ target "_blank", href <| "https://www.flickr.com/photos/" ++ userId ] [ text name ]
+        ]
 
 
 viewImage : Maybe Location -> Float -> Image -> Html Msg
@@ -181,6 +193,8 @@ viewImage userLocation now imgData =
                     ]
                 , div [ class "img-meta" ]
                     [ h3 [ class "h5 img-title" ] [ text imgData.title ]
+                    , p [ class "img-desc" ] [ text imgData.description ]
+                    , viewAuthor imgData.ownerName imgData.owner
                     , div [ class "img-date" ]
                         [ span [ class "icon icon-date" ] []
                         , text <| (TimeAgo.inWords (Date.fromTime now) imgData.date) ++ " ago"
