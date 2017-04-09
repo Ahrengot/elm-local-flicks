@@ -7,12 +7,12 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Lazy exposing (lazy)
 import Http exposing (decodeUri)
-import Regex
 import Navigation
 import Components.LocationAutocomplete as Autocomplete
 import Components.GetLocationBtn as GetLocationBtn
 import FlickrImages
 import Router
+import Suggestions exposing (viewSuggestionLinks)
 
 
 -- Initial model and state
@@ -66,16 +66,6 @@ initialState flags location =
         ( model, Cmd.batch [ cmd, initCmd ] )
 
 
-suggestions : List String
-suggestions =
-    [ "#/location/Nuuk/@/64.18140989999999,-51.694138"
-    , "#/location/Sofia/@/42.6977082,23.3218675"
-    , "#/location/Dubai/@/25.2048493,55.2707828"
-    , "#/location/Brooklyn/@/40.6781784,-73.9441579"
-    , "#/location/S%C3%A3o%20Paulo/@/-23.5505199,-46.63330939999999"
-    ]
-
-
 
 -- Update and messages
 
@@ -89,11 +79,15 @@ type Msg
     | UserLocationMsg GetLocationBtn.Msg
     | FlickrMsg FlickrImages.Msg
     | UrlChange Navigation.Location
+    | NoOp
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        NoOp ->
+            ( model, Cmd.none )
+
         UpdateTime now ->
             ( { model | now = now }, Cmd.none )
 
@@ -150,7 +144,12 @@ update msg model =
                 batchedCmd =
                     Cmd.batch [ thisCmd, Cmd.map UserLocationMsg locCmd ]
             in
-                ( { model | userLocation = newUserLocation, autocomplete = newAutocomplete }, batchedCmd )
+                ( { model
+                    | userLocation = newUserLocation
+                    , autocomplete = newAutocomplete
+                  }
+                , batchedCmd
+                )
 
         FlickrMsg fMsg ->
             let
@@ -208,7 +207,12 @@ modelFromUrlLocation urlLocation model =
                             FlickrImages.update (FlickrImages.LoadImages location) model.flickrImages
 
                         ( newAutocomplete, _ ) =
-                            Autocomplete.update (Autocomplete.SetDefaultQuery <| Maybe.withDefault "unknown location" <| decodeUri locationName) model.autocomplete
+                            Autocomplete.update
+                                (Autocomplete.SetDefaultQuery <|
+                                    Maybe.withDefault "unknown location" <|
+                                        decodeUri locationName
+                                )
+                                model.autocomplete
                     in
                         ( Just location, newFlickrImages, newAutocomplete, Cmd.map FlickrMsg fCmd )
 
@@ -298,7 +302,8 @@ viewApp model =
             case model.router.route of
                 Router.Home ->
                     [ errorView
-                    , div [ class "location-suggestions" ] <| viewSuggestionLinks suggestions
+                    , div [ class "location-suggestions" ] <|
+                        List.map (\el -> Html.map (\a -> NoOp) el) viewSuggestionLinks
                     ]
 
                 Router.LocationSearch locationName ( lat, lng ) ->
@@ -323,43 +328,6 @@ viewApp model =
                 , div [] viewContents
                 ]
             ]
-
-
-viewSuggestionLinks : List String -> List (Html Msg)
-viewSuggestionLinks linkList =
-    let
-        links =
-            linkList
-                |> List.map
-                    (\link ->
-                        let
-                            firstSubMatch : String -> List (Maybe String) -> String
-                            firstSubMatch fallback submatches =
-                                case List.head submatches of
-                                    Nothing ->
-                                        fallback
-
-                                    Just maybeString ->
-                                        Maybe.withDefault fallback maybeString
-
-                            firstMatch =
-                                List.head <| Regex.find (Regex.AtMost 1) (Regex.regex "^#/location/(.[^/]+)") link
-
-                            linkLabel =
-                                case firstMatch of
-                                    Nothing ->
-                                        link
-
-                                    Just match ->
-                                        firstSubMatch link match.submatches
-                        in
-                            li [] [ a [ href link ] [ text <| Maybe.withDefault link <| decodeUri linkLabel ] ]
-                    )
-    in
-        if not <| List.isEmpty links then
-            (text "Or try one of these: ") :: [ ul [] links ]
-        else
-            []
 
 
 viewError : String -> Html Msg
