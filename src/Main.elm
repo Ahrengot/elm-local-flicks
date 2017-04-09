@@ -96,10 +96,27 @@ update msg model =
 
         ScrollMsg sMsg ->
             let
-                ( newAutocomplete, cmd ) =
+                ( newScroll, sCmd ) =
                     Scroll.update sMsg model.scroll
+
+                ( newFlickr, fCmd ) =
+                    if newScroll.reachedEndOfPage == True && model.flickrImages.loading == False then
+                        FlickrImages.update FlickrImages.LoadNextPage model.flickrImages
+                    else
+                        ( model.flickrImages, Cmd.none )
+
+                batchedCmd =
+                    Cmd.batch
+                        [ Cmd.map ScrollMsg sCmd
+                        , Cmd.map FlickrMsg fCmd
+                        ]
             in
-                ( { model | scroll = newAutocomplete }, Cmd.map ScrollMsg cmd )
+                ( { model
+                    | scroll = newScroll
+                    , flickrImages = newFlickr
+                  }
+                , batchedCmd
+                )
 
         AutocompleteMsg acMsg ->
             let
@@ -187,7 +204,11 @@ update msg model =
                             Cmd.none
 
                 batchedCmd =
-                    Cmd.batch [ cmd, (Cmd.map FlickrMsg fCmd), Cmd.map ScrollMsg scrollCmd ]
+                    Cmd.batch
+                        [ cmd
+                        , (Cmd.map FlickrMsg fCmd)
+                        , Cmd.map ScrollMsg scrollCmd
+                        ]
             in
                 ( { model
                     | flickrImages = newFlickrImages
@@ -377,14 +398,26 @@ viewError msg =
 
 viewImageGrid : Model -> Html FlickrImages.Msg
 viewImageGrid model =
-    if model.flickrImages.loading then
-        div [ class "image-grid-load-indicator" ] [ text "Loading images..." ]
-    else if model.flickrImages.loading == False && List.isEmpty model.flickrImages.results then
+    if model.flickrImages.loading == False && List.isEmpty model.flickrImages.results then
         div [ class "image-grid-load-indicator" ] [ text "No images found at this location. Try somewhere else.." ]
     else
-        model.flickrImages.results
-            |> List.map (FlickrImages.viewImage model.selectedLocation model.now)
-            |> div [ class "image-grid" ]
+        let
+            images =
+                model.flickrImages.results
+                    |> List.map (FlickrImages.viewImage model.selectedLocation model.now)
+
+            loadedAll =
+                model.flickrImages.query.currentPage >= model.flickrImages.query.totalPages
+        in
+            div [ class "image-results" ]
+                [ div [ class "image-grid" ] images
+                , if loadedAll then
+                    div [ class "image-grid-load-indicator" ] [ text "All images loaded" ]
+                  else if model.flickrImages.loading then
+                    div [ class "image-grid-load-indicator" ] [ text "Loading..." ]
+                  else
+                    text ""
+                ]
 
 
 

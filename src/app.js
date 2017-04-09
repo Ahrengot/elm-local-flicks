@@ -35,10 +35,8 @@ const debouncedSendScroll = debounce(() => {
 elm.ports.toggleScroll.subscribe(isActive => {
 	if ( isActive ) {
 		window.addEventListener('scroll', debouncedSendScroll);
-		console.log("Subscribed to scroll events");
 	} else {
 		window.removeEventListener('scroll', debouncedSendScroll);
-		console.log("Unsubscribed from scroll events");
 	}
 });
 

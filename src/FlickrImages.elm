@@ -15,6 +15,7 @@ import Util exposing (parseHttpError, decodeDate, distanceInKm)
 
 type alias Model =
     { apiKey : String
+    , query : Query
     , results : List Image
     , loading : Bool
     , loadError : Maybe String
@@ -36,6 +37,13 @@ type alias Image =
     }
 
 
+type alias Query =
+    { currentPage : Int
+    , totalPages : Int
+    , location : Location
+    }
+
+
 type alias Location =
     { name : String
     , lat : Float
@@ -46,6 +54,7 @@ type alias Location =
 initialState : String -> Model
 initialState apiKey =
     { apiKey = apiKey
+    , query = Query 0 0 <| Location "" 0 0
     , results = []
     , loading = False
     , loadError = Nothing
@@ -58,6 +67,7 @@ initialState apiKey =
 
 type Msg
     = LoadImages Location
+    | LoadNextPage
     | Reset
     | ImageSearchResponse (Result Http.Error (List Image))
 
@@ -66,7 +76,23 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         LoadImages location ->
-            ( { model | loading = True, results = [] }, fetchImages location model.apiKey )
+            ( { model
+                | loading = True
+                , results = []
+                , query = (Query 1 1 location)
+              }
+            , fetchImages location model.apiKey
+            )
+
+        LoadNextPage ->
+            let
+                newModel =
+                    if model.query.currentPage <= model.query.totalPages then
+                        { model | loading = True }
+                    else
+                        model
+            in
+                ( newModel, Cmd.none )
 
         Reset ->
             ( initialState model.apiKey, Cmd.none )
