@@ -40,6 +40,10 @@ type alias Image =
 type alias Query =
     { currentPage : Int
     , totalPages : Int
+    , perPage : Int
+    , sort : String
+    , radius : Int
+    , radiusUnit : String
     , location : Location
     }
 
@@ -54,7 +58,15 @@ type alias Location =
 initialState : String -> Model
 initialState apiKey =
     { apiKey = apiKey
-    , query = Query 0 0 <| Location "" 0 0
+    , query =
+        { currentPage = 0
+        , totalPages = 0
+        , perPage = 6
+        , sort = "date-posted-dsc"
+        , radius = 5
+        , radiusUnit = "km"
+        , location = Location "" 0 0
+        }
     , results = []
     , loading = False
     , loadError = Nothing
@@ -76,13 +88,17 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         LoadImages location ->
-            ( { model
-                | loading = True
-                , results = []
-                , query = (Query 1 1 location)
-              }
-            , fetchImages location model.apiKey
-            )
+            let
+                query =
+                    model.query
+            in
+                ( { model
+                    | loading = True
+                    , results = []
+                    , query = { query | location = location }
+                  }
+                , fetchImages model location model.apiKey
+                )
 
         LoadNextPage ->
             let
@@ -133,20 +149,20 @@ getFlickrApiUrl endpoint args =
         "https://api.flickr.com/services/rest/" ++ endpoint ++ queryString
 
 
-fetchImages : Location -> String -> Cmd Msg
-fetchImages location apiKey =
+fetchImages : Model -> Location -> String -> Cmd Msg
+fetchImages model location apiKey =
     let
         -- Docs: https://www.flickr.com/services/api/flickr.photos.search.html
         url =
             getFlickrApiUrl
                 "?method=flickr.photos.search"
-                [ ( "radius", "5" )
-                , ( "radius_units", "km" )
-                , ( "per_page", "25" )
+                [ ( "radius", toString model.query.radius )
+                , ( "radius_units", model.query.radiusUnit )
+                , ( "per_page", toString model.query.perPage )
                 , ( "lat", toString location.lat )
                 , ( "lon", toString location.lng )
                 , ( "extras", "date_upload,geo,owner_name,description" )
-                , ( "sort", "date-posted-dsc" )
+                , ( "sort", model.query.sort )
                 , ( "format", "json" )
                 , ( "nojsoncallback", "1" )
                 , ( "api_key", apiKey )
