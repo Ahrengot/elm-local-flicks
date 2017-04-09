@@ -13,6 +13,7 @@ import Components.GetLocationBtn as GetLocationBtn
 import FlickrImages
 import Router
 import Suggestions exposing (viewSuggestionLinks)
+import Scroll
 
 
 -- Initial model and state
@@ -31,6 +32,7 @@ type alias Model =
     , autocomplete : Autocomplete.Model
     , userLocation : GetLocationBtn.Model
     , flickrImages : FlickrImages.Model
+    , scroll : Scroll.Model
     , router : Router.Model
     }
 
@@ -52,6 +54,7 @@ initialState flags location =
             , autocomplete = Autocomplete.initialState
             , userLocation = GetLocationBtn.initialState
             , flickrImages = FlickrImages.initialState flags.flickrApiKey
+            , scroll = Scroll.initialState
             , router = Router.initialState location
             }
 
@@ -79,20 +82,24 @@ type Msg
     | UserLocationMsg GetLocationBtn.Msg
     | FlickrMsg FlickrImages.Msg
     | UrlChange Navigation.Location
-    | NoOp
+    | ScrollMsg Scroll.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        NoOp ->
-            ( model, Cmd.none )
-
         UpdateTime now ->
             ( { model | now = now }, Cmd.none )
 
         UrlChange urlLocation ->
             modelFromUrlLocation urlLocation model
+
+        ScrollMsg sMsg ->
+            let
+                ( newAutocomplete, cmd ) =
+                    Scroll.update sMsg model.scroll
+            in
+                ( { model | scroll = newAutocomplete }, Cmd.map ScrollMsg cmd )
 
         AutocompleteMsg acMsg ->
             let
@@ -156,6 +163,15 @@ update msg model =
                 ( newFlickrImages, fCmd ) =
                     FlickrImages.update fMsg model.flickrImages
 
+                scrollMsg =
+                    if newFlickrImages.loading == False && List.length newFlickrImages.results /= 0 then
+                        Scroll.StartListening
+                    else
+                        Scroll.StopListening
+
+                ( newScroll, scrollCmd ) =
+                    Scroll.update scrollMsg model.scroll
+
                 cmd =
                     case fMsg of
                         -- Change body bg if we have image results
@@ -171,9 +187,14 @@ update msg model =
                             Cmd.none
 
                 batchedCmd =
-                    Cmd.batch [ cmd, Cmd.map FlickrMsg fCmd ]
+                    Cmd.batch [ cmd, (Cmd.map FlickrMsg fCmd), Cmd.map ScrollMsg scrollCmd ]
             in
-                ( { model | flickrImages = newFlickrImages }, batchedCmd )
+                ( { model
+                    | flickrImages = newFlickrImages
+                    , scroll = newScroll
+                  }
+                , batchedCmd
+                )
 
 
 
@@ -195,6 +216,20 @@ modelFromUrlLocation urlLocation model =
     let
         newRouter =
             Router.update (Router.UrlChange urlLocation) model.router
+
+        scrollMsg =
+            case newRouter.route of
+                Router.LocationSearch _ _ ->
+                    if List.length model.flickrImages.results /= 0 then
+                        Scroll.StartListening
+                    else
+                        Scroll.StopListening
+
+                _ ->
+                    Scroll.StopListening
+
+        ( newScroll, scrollCmd ) =
+            Scroll.update scrollMsg model.scroll
 
         ( newSelectedLocation, newFlickrImages, newAutocomplete, cmd ) =
             case newRouter.route of
@@ -230,14 +265,18 @@ modelFromUrlLocation urlLocation model =
 
                 _ ->
                     ( Nothing, model.flickrImages, model.autocomplete, Cmd.none )
+
+        finalCmd =
+            Cmd.batch [ cmd, (Cmd.map ScrollMsg scrollCmd) ]
     in
         ( { model
             | router = newRouter
             , selectedLocation = newSelectedLocation
             , flickrImages = newFlickrImages
             , autocomplete = newAutocomplete
+            , scroll = newScroll
           }
-        , cmd
+        , finalCmd
         )
 
 
@@ -303,7 +342,7 @@ viewApp model =
                 Router.Home ->
                     [ errorView
                     , div [ class "location-suggestions" ] <|
-                        List.map (\el -> Html.map (\a -> NoOp) el) viewSuggestionLinks
+                        List.map (\el -> Html.map never el) viewSuggestionLinks
                     ]
 
                 Router.LocationSearch locationName ( lat, lng ) ->
@@ -357,4 +396,5 @@ subscriptions model =
     Sub.batch
         [ (Time.every Time.minute UpdateTime)
         , Sub.map AutocompleteMsg <| Autocomplete.subscriptions model.autocomplete
+        , Sub.map ScrollMsg <| Scroll.subscriptions model.scroll
         ]
