@@ -102,30 +102,37 @@ update msg model =
             let
                 query =
                     model.query
+
+                newModel =
+                    { model
+                        | loading = True
+                        , results = []
+                        , query =
+                            { query
+                                | location = location
+                                , totalPages = 0
+                                , currentPage = 1
+                                , totalImages = 0
+                            }
+                    }
             in
-                ( { model
-                    | loading = True
-                    , results = []
-                    , query =
-                        { query
-                            | location = location
-                            , totalPages = 0
-                            , currentPage = 0
-                            , totalImages = 0
-                        }
-                  }
-                , fetchImages model location model.apiKey
-                )
+                ( newModel, fetchImages newModel location newModel.apiKey )
 
         LoadNextPage ->
             let
+                query =
+                    model.query
+
                 newModel =
                     if model.query.currentPage <= model.query.totalPages then
-                        { model | loading = True }
+                        { model
+                            | loading = True
+                            , query = { query | currentPage = query.currentPage + 1 }
+                        }
                     else
                         model
             in
-                ( newModel, Cmd.none )
+                ( newModel, fetchImages newModel newModel.query.location newModel.apiKey )
 
         Reset ->
             ( initialState model.apiKey, Cmd.none )
@@ -204,6 +211,7 @@ fetchImages model location apiKey =
                 "?method=flickr.photos.search"
                 [ ( "radius", toString model.query.radius )
                 , ( "radius_units", model.query.radiusUnit )
+                , ( "page", toString model.query.currentPage )
                 , ( "per_page", toString model.query.perPage )
                 , ( "lat", toString location.lat )
                 , ( "lon", toString location.lng )
