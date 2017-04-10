@@ -40,6 +40,7 @@ type alias Image =
 type alias Query =
     { currentPage : Int
     , totalPages : Int
+    , totalImages : Int
     , perPage : Int
     , sort : String
     , radius : Int
@@ -55,12 +56,22 @@ type alias Location =
     }
 
 
+type alias SearchResults =
+    { page : Int
+    , pages : Int
+    , perpage : Int
+    , results : List Image
+    , total : Int
+    }
+
+
 initialState : String -> Model
 initialState apiKey =
     { apiKey = apiKey
     , query =
         { currentPage = 0
         , totalPages = 0
+        , totalImages = 0
         , perPage = 6
         , sort = "date-posted-dsc"
         , radius = 5
@@ -81,7 +92,7 @@ type Msg
     = LoadImages Location
     | LoadNextPage
     | Reset
-    | ImageSearchResponse (Result Http.Error (List Image))
+    | ImageSearchResponse (Result Http.Error SearchResults)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -95,7 +106,13 @@ update msg model =
                 ( { model
                     | loading = True
                     , results = []
-                    , query = { query | location = location }
+                    , query =
+                        { query
+                            | location = location
+                            , totalPages = 0
+                            , currentPage = 0
+                            , totalImages = 0
+                        }
                   }
                 , fetchImages model location model.apiKey
                 )
@@ -115,12 +132,41 @@ update msg model =
 
         ImageSearchResponse response ->
             let
+                query =
+                    model.query
+
+                newQuery =
+                    case response of
+                        Ok result ->
+                            { query
+                                | currentPage = result.page
+                                , totalPages = result.pages
+                                , totalImages = result.total
+                            }
+
+                        Err error ->
+                            model.query
+
+                newResults =
+                    case response of
+                        -- If first page just use results
+                        -- otherwise append new results to exisiting list
+                        Ok result ->
+                            if newQuery.currentPage == 1 then
+                                result.results
+                            else
+                                List.append model.results result.results
+
+                        Err error ->
+                            model.results
+
                 newModel =
                     case response of
-                        Ok results ->
+                        Ok result ->
                             { model
                                 | loading = False
-                                , results = results
+                                , results = newResults
+                                , query = newQuery
                             }
 
                         Err error ->
@@ -172,9 +218,19 @@ fetchImages model location apiKey =
             |> Http.send ImageSearchResponse
 
 
-imageListDecoder : Decode.Decoder (List Image)
+stringIntDecoder : Decode.Decoder Int
+stringIntDecoder =
+    Decode.map (\str -> String.toInt (str) |> Result.withDefault 0) Decode.string
+
+
+imageListDecoder : Decode.Decoder SearchResults
 imageListDecoder =
-    Decode.at [ "photos", "photo" ] (Decode.list imageDecoder)
+    decode SearchResults
+        |> requiredAt [ "photos", "page" ] Decode.int
+        |> requiredAt [ "photos", "pages" ] Decode.int
+        |> requiredAt [ "photos", "perpage" ] Decode.int
+        |> requiredAt [ "photos", "photo" ] (Decode.list imageDecoder)
+        |> requiredAt [ "photos", "total" ] stringIntDecoder
 
 
 imageDecoder : Decode.Decoder Image
