@@ -3,12 +3,14 @@
 }
 
 .image-grid {
-  column-count: 1;
-  column-gap: 1rem;
-
   width: 90vw;
   max-width: 1150px;
   margin-bottom: 1em;
+
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: space-around;
+  align-items: stretch;
 }
 
 .image-grid-load-indicator {
@@ -22,9 +24,9 @@
 }
 
 .grid-item {
-  display: inline-block;
-  width: 100%;
-  margin-bottom: 1rem;
+  flex: 0 1 100%;
+  margin: 0 0 1rem;
+  padding: 0 0.5rem;
 }
 
 .grid-item img {
@@ -34,6 +36,10 @@
 }
 
 .img-card {
+  height: 100%;
+  display: flex;
+  flex-flow: column nowrap;
+
   box-shadow: 0 1px 9px rgba(0,0,0,0.2);
   background-color: white;
 }
@@ -67,11 +73,11 @@
 }
 
 @media (min-width: 600px) {
-  .image-grid { column-count: 2; }
+  .grid-item { flex-basis: 50%; }
 }
 
 @media (min-width: 900px) {
-  .image-grid { column-count: 3; }
+  .grid-item { flex-basis: 33%; }
 }
 
 @keyframes fadeIn {
