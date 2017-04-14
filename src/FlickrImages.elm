@@ -4,7 +4,8 @@ import Date
 import Date.Distance as TimeAgo
 import Http
 import Html exposing (..)
-import Html.Attributes exposing (class, href, target)
+import Html.Attributes exposing (class, for, class, selected, value, id, target, href, rel)
+import Html.Events as E
 import Json.Decode as Decode
 import Json.Decode.Pipeline exposing (decode, required, requiredAt, optional)
 import Util exposing (parseHttpError, decodeDate, distanceInKm)
@@ -42,11 +43,20 @@ type alias Query =
     , totalPages : Int
     , totalImages : Int
     , perPage : Int
-    , sort : String
+    , sort : SortValue
     , radius : Int
     , radiusUnit : String
     , location : Location
     }
+
+
+type SortValue
+    = DatePostedAsc
+    | DatePostedDesc
+    | DateTakenAsc
+    | DateTakenDesc
+    | InterestingnessDesc
+    | InterestingnessAsc
 
 
 type alias Location =
@@ -72,8 +82,8 @@ initialState apiKey =
         { currentPage = 0
         , totalPages = 0
         , totalImages = 0
-        , perPage = 6
-        , sort = "date-posted-dsc"
+        , perPage = 15
+        , sort = DatePostedDesc
         , radius = 5
         , radiusUnit = "km"
         , location = Location "" 0 0
@@ -90,6 +100,7 @@ initialState apiKey =
 
 type Msg
     = LoadImages Location
+    | ChangeSort SortValue
     | LoadNextPage
     | Reset
     | ImageSearchResponse (Result Http.Error SearchResults)
@@ -98,6 +109,25 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        Reset ->
+            ( initialState model.apiKey, Cmd.none )
+
+        ChangeSort sortValue ->
+            let
+                query =
+                    model.query
+
+                newQuery =
+                    { query | sort = sortValue }
+
+                defaultState =
+                    initialState model.apiKey
+
+                ( newModel, newCmd ) =
+                    { defaultState | query = newQuery } |> update (LoadImages query.location)
+            in
+                ( newModel, newCmd )
+
         LoadImages location ->
             let
                 query =
@@ -133,9 +163,6 @@ update msg model =
                         model
             in
                 ( newModel, fetchImages newModel newModel.query.location newModel.apiKey )
-
-        Reset ->
-            ( initialState model.apiKey, Cmd.none )
 
         ImageSearchResponse response ->
             let
@@ -189,6 +216,53 @@ update msg model =
 -- HTTP API interactions
 
 
+parseSortType : SortValue -> { label : String, value : String }
+parseSortType sortValue =
+    case sortValue of
+        DatePostedAsc ->
+            { label = "Date posted - old", value = "date-posted-asc" }
+
+        DatePostedDesc ->
+            { label = "Date posted - new", value = "date-posted-desc" }
+
+        DateTakenAsc ->
+            { label = "Date taken - old", value = "date-taken-asc" }
+
+        DateTakenDesc ->
+            { label = "Date taken - new", value = "date-taken-desc" }
+
+        InterestingnessAsc ->
+            { label = "Interesting - least", value = "interestingness-asc" }
+
+        InterestingnessDesc ->
+            { label = "Interesting - most", value = "interestingness-desc" }
+
+
+sortStringToType : String -> SortValue
+sortStringToType str =
+    case str of
+        "date-posted-asc" ->
+            DatePostedAsc
+
+        "date-posted-desc" ->
+            DatePostedDesc
+
+        "date-taken-asc" ->
+            DateTakenAsc
+
+        "date-taken-desc" ->
+            DateTakenDesc
+
+        "interestingness-desc" ->
+            InterestingnessDesc
+
+        "interestingness-asc" ->
+            InterestingnessAsc
+
+        _ ->
+            DatePostedAsc
+
+
 getFlickrApiUrl : String -> List ( String, String ) -> String
 getFlickrApiUrl endpoint args =
     -- Example URL: https://api.flickr.com/services/rest/?method=flickr.places.findByLatLon&api_key=02ff0bcdae6bb7b4929cc30b56b9f4ce&lat=10&lon=20&format=json&nojsoncallback=1
@@ -216,7 +290,7 @@ fetchImages model location apiKey =
                 , ( "lat", toString location.lat )
                 , ( "lon", toString location.lng )
                 , ( "extras", "date_upload,geo,owner_name,description" )
-                , ( "sort", model.query.sort )
+                , ( "sort", (parseSortType model.query.sort).value )
                 , ( "format", "json" )
                 , ( "nojsoncallback", "1" )
                 , ( "api_key", apiKey )
@@ -261,6 +335,34 @@ imageDecoder =
 -- Views
 
 
+onChangeSort : (String -> Msg) -> Attribute Msg
+onChangeSort msg =
+    E.on "change" (Decode.map msg E.targetValue)
+
+
+viewSortSelect : Model -> Html Msg
+viewSortSelect model =
+    let
+        options =
+            [ DatePostedAsc, DatePostedDesc, InterestingnessDesc, InterestingnessAsc, DateTakenAsc, DateTakenDesc ]
+                |> List.map
+                    (\sortType ->
+                        let
+                            parsed =
+                                parseSortType sortType
+
+                            isSelected =
+                                (sortType == model.query.sort)
+                        in
+                            option [ selected isSelected, value parsed.value ] [ text parsed.label ]
+                    )
+    in
+        div [ class "sort-dropdown" ]
+            [ label [ for "sort" ] [ text "Sort by" ]
+            , select [ id "sort", onChangeSort (\str -> ChangeSort (sortStringToType str)) ] options
+            ]
+
+
 viewAuthor : String -> String -> Html Msg
 viewAuthor name userId =
     div [ class "img-distance" ]
@@ -275,6 +377,9 @@ viewImage userLocation now imgData =
         -- https://farm{farm-id}.staticflickr.com/{server-id}/{id}_{secret}_[mstzb].jpg
         srcBase =
             "https://farm" ++ (toString imgData.farm) ++ ".staticflickr.com/" ++ imgData.server ++ "/" ++ imgData.id ++ "_" ++ imgData.secret
+
+        imgFlickrUrl =
+            "https://www.flickr.com/photos/" ++ imgData.owner ++ "/" ++ imgData.id
 
         imgLocation =
             { lat = Result.withDefault 0 (String.toFloat imgData.latitude)
@@ -294,7 +399,7 @@ viewImage userLocation now imgData =
     in
         div [ class "grid-item" ]
             [ div [ class "img-card" ]
-                [ a [ href (srcBase ++ "_b.jpg") ]
+                [ a [ href imgFlickrUrl, rel "nofollow" ]
                     [ img [ Html.Attributes.src <| srcBase ++ "_z.jpg" ] []
                     ]
                 , div [ class "img-meta" ]

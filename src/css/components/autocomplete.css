@@ -3,6 +3,37 @@
   max-width: 550px;
   margin: auto;
   text-align: left;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.autocomplete-wrap > * {
+  position: relative;
+  flex: 1 1 auto;
+}
+
+.sort-dropdown {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-grow: 0;
+  margin-left: 1em;
+}
+
+.sort-dropdown label {
+  color: #888;
+  margin: 0 0.5em 0;
+}
+
+.sort-dropdown select {
+  height: 42px;
+  border: 0;
+  border: thin solid #ddd;
+  background-color: white;
+  box-sizing: border-box;
+  font-size: 90%;
 }
 
 .get-location-btn, .autocomplete-input-reset {

@@ -337,24 +337,37 @@ viewApp model =
                     []
 
                 _ ->
-                    [ p [ class "app-desc" ] [ text "Flickr images from around The World" ]
+                    [ p [ class "app-desc" ]
+                        [ if model.flickrImages.query.totalImages > 0 then
+                            text <| "Found " ++ (toString model.flickrImages.query.totalImages) ++ " images"
+                          else
+                            text "Flickr images from around The World"
+                        ]
                     , div [ class "autocomplete-wrap" ]
-                        [ Html.map AutocompleteMsg <| lazy Autocomplete.view model.autocomplete
-                        , Html.map UserLocationMsg <| lazy GetLocationBtn.viewGetLocationBtn model.userLocation
-                        , a
-                            [ href "#"
-                            , class "autocomplete-input-reset"
-                            , title "Clear search"
-                            , style
-                                [ ( "display"
-                                  , if model.autocomplete.query == "" then
-                                        "none"
-                                    else
-                                        ""
-                                  )
+                        [ div []
+                            [ Html.map AutocompleteMsg <| lazy Autocomplete.view model.autocomplete
+                            , Html.map UserLocationMsg <| lazy GetLocationBtn.viewGetLocationBtn model.userLocation
+                            , a
+                                [ href "#"
+                                , class "autocomplete-input-reset"
+                                , title "Clear search"
+                                , style
+                                    [ ( "display"
+                                      , if model.autocomplete.query == "" then
+                                            "none"
+                                        else
+                                            ""
+                                      )
+                                    ]
                                 ]
+                                [ text "×" ]
                             ]
-                            [ text "×" ]
+                        , case model.router.route of
+                            Router.LocationSearch locationName ( lat, lng ) ->
+                                Html.map FlickrMsg <| lazy FlickrImages.viewSortSelect model.flickrImages
+
+                            _ ->
+                                (text "")
                         ]
                     ]
 
@@ -407,7 +420,7 @@ viewImageGrid model =
                     |> List.map (FlickrImages.viewImage model.selectedLocation model.now)
 
             loadedAll =
-                model.flickrImages.query.currentPage >= model.flickrImages.query.totalPages
+                (not model.flickrImages.loading) && model.flickrImages.query.currentPage >= model.flickrImages.query.totalPages
         in
             div [ class "image-results" ]
                 [ div [ class "image-grid" ] images
